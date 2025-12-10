@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atropos Health - ETL Tools</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #0f0f1a 100%);
+      min-height: 100vh;
+    }
+    .card-gradient {
+      background: linear-gradient(145deg, #1a1a2e 0%, #16162a 100%);
+    }
+    .accent-gradient {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    }
+    .glow {
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+    }
+  </style>
+</head>
+<body class="p-8">
+<div class="max-w-6xl mx-auto">
+  <div class="card-gradient rounded-2xl shadow-2xl p-8 mb-8 border border-gray-800">
+    <h1 class="text-4xl font-bold text-white mb-2">Atropos Health ETL Tools</h1>
+    <p class="text-gray-400">Internal tools for data engineering workflows</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- PSL Release Notes Generator -->
+    <a href="/psl-generator.html" class="block">
+      <div class="card-gradient rounded-xl shadow-xl p-6 border border-gray-800 hover:border-indigo-500 transition-all glow cursor-pointer">
+        <div class="flex items-center gap-4 mb-4">
+          <div class="w-16 h-16 accent-gradient rounded-xl flex items-center justify-center shadow-lg">
+            <span class="text-3xl">📄</span>
+          </div>
+          <div>
+            <h2 class="text-2xl font-bold text-white">PSL Release Notes</h2>
+            <p class="text-gray-400">Generate release documentation</p>
+          </div>
+        </div>
+        <p class="text-gray-300 text-sm">
+          Auto-generate standardized release notes from PSL configuration files with Sales/CS Q&A, feature detection, and clinical review checklists.
+        </p>
+      </div>
+    </a>
+
+    <!-- Visit Type Mapper -->
+    <a href="/visit-mapper.html" class="block">
+      <div class="card-gradient rounded-xl shadow-xl p-6 border border-gray-800 hover:border-blue-500 transition-all glow cursor-pointer">
+        <div class="flex items-center gap-4 mb-4">
+          <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg">
+            <span class="text-3xl">🗺️</span>
+          </div>
+          <div>
+            <h2 class="text-2xl font-bold text-white">Visit Type Mapper</h2>
+            <p class="text-gray-400">Vocab & hierarchy mappings</p>
+          </div>
+        </div>
+        <p class="text-gray-300 text-sm">
+          Map source visit types to approved clinical vocabulary and hierarchy. Manage mappings with persistent storage across ETL projects.
+        </p>
+      </div>
+    </a>
+
+    <!-- Visit Type Mapper - Cyberpunk -->
+    <a href="/visit-mapper-cyber.html" class="block">
+      <div class="card-gradient rounded-xl shadow-xl p-6 border border-gray-800 hover:border-green-500 transition-all glow cursor-pointer">
+        <div class="flex items-center gap-4 mb-4">
+          <div class="w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+            <span class="text-3xl">💻</span>
+          </div>
+          <div>
+            <h2 class="text-2xl font-bold text-white">Visit Type Mapper</h2>
+            <p class="text-green-400">Cyberpunk Edition</p>
+          </div>
+        </div>
+        <p class="text-gray-300 text-sm">
+          Same powerful mapping tool, but with Matrix-style hacker aesthetics. Green-on-black terminal vibes with CRT effects.
+        </p>
+      </div>
+    </a>
+
+    <!-- Coming Soon - Config Checker -->
+    <div class="card-gradient rounded-xl shadow-xl p-6 border border-gray-800 opacity-60">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="w-16 h-16 bg-gradient-to-br from-orange-600 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
+          <span class="text-3xl">🔍</span>
+        </div>
+        <div>
+          <h2 class="text-2xl font-bold text-white">Config Checker</h2>
+          <p class="text-gray-400">Coming soon...</p>
+        </div>
+      </div>
+      <p class="text-gray-300 text-sm">
+        Validate PSL configs for missing brackets, duplicate cache names, broken connections, and other common errors before deployment.
+      </p>
+    </div>
+  </div>
+
+  <div class="mt-8 text-center text-gray-600 text-sm">
+    Atropos Health Internal Tools • Port: <span id="port">8081</span>
+  </div>
+</div>
+
+<script>
+  // Display current port
+  const port = window.location.port || '8081';
+  document.getElementById('port').textContent = port;
+</script>
+</body>
+</html>
