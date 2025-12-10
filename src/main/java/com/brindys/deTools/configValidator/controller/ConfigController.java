@@ -1,8 +1,8 @@
-package com.brindys.deTools.pslReleaseNotesGenerator.controller;
+package com.brindys.deTools.configValidator.controller;
 
 
-import com.brindys.deTools.pslReleaseNotesGenerator.model.ValidationResult;
-import com.brindys.deTools.pslReleaseNotesGenerator.service.ConfigValidator;
+import com.brindys.deTools.configValidator.model.ValidationResult;
+import com.brindys.deTools.configValidator.service.ConfigValidator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

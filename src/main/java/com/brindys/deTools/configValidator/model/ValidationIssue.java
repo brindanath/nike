@@ -1,4 +1,4 @@
-package com.brindys.deTools.pslReleaseNotesGenerator.model;
+package com.brindys.deTools.configValidator.model;
 
 
 import lombok.AllArgsConstructor;

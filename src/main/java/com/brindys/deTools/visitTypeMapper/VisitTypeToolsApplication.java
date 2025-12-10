@@ -9,7 +9,7 @@ import org.springframework.context.annotation.ComponentScan;
 @SpringBootApplication
 @ComponentScan(basePackages = {
     "com.brindys.deTools.visitTypeMapper",
-    "com.brindys.deTools.pslReleaseNotesGenerator"
+    "com.brindys.deTools.configValidator"
 })
 public class VisitTypeToolsApplication implements CommandLineRunner {
 

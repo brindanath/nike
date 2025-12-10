@@ -1,9 +1,9 @@
-package com.brindys.deTools.pslReleaseNotesGenerator.service;
+package com.brindys.deTools.configValidator.service;
 
 
 
-import com.brindys.deTools.pslReleaseNotesGenerator.model.ValidationIssue;
-import com.brindys.deTools.pslReleaseNotesGenerator.model.ValidationResult;
+import com.brindys.deTools.configValidator.model.ValidationIssue;
+import com.brindys.deTools.configValidator.model.ValidationResult;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
