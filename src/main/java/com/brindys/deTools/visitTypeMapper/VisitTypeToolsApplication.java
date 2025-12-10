@@ -4,8 +4,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
+@ComponentScan(basePackages = {
+    "com.brindys.deTools.visitTypeMapper",
+    "com.brindys.deTools.pslReleaseNotesGenerator"
+})
 public class VisitTypeToolsApplication implements CommandLineRunner {
 
   @Value("${server.port}")

@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSL Release Notes Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0f0f1a; }
+        .glow { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3); }
+        .glow-subtle { box-shadow: 0 0 15px rgba(99, 102, 241, 0.15); }
+        textarea:focus { box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5); }
+        .gradient-border { background: linear-gradient(135deg, #1e1e2e 0%, #2a2a40 100%); }
+        .accent-gradient { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
+        .card-gradient { background: linear-gradient(145deg, #1a1a2e 0%, #16162a 100%); }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+    const { useState } = React;
+
+    const Home = ({ className }) => (
+        <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+    );
+
+    const PSLReleaseNotesGenerator = () => {
+        const [pslConfig, setPslConfig] = useState('');
+        const [reportData, setReportData] = useState(null);
+        const [releaseNotes, setReleaseNotes] = useState('');
+        const [parsedData, setParsedData] = useState(null);
+        const [isProcessing, setIsProcessing] = useState(false);
+        const [copySuccess, setCopySuccess] = useState(false);
+        const [isDragging, setIsDragging] = useState(false);
+
+        const handleDragOver = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDragging(true);
+        };
+
+        const handleDragLeave = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.currentTarget.contains(e.relatedTarget)) return;
+            setIsDragging(false);
+        };
+
+        const handleDrop = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDragging(false);
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    setPslConfig(event.target.result);
+                };
+                reader.readAsText(file);
+            }
+        };
+
+        const handleDragEnter = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDragging(true);
+        };
+
+        const handleFileSelect = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    setPslConfig(event.target.result);
+                };
+                reader.readAsText(file);
+            }
+        };
+
+        const parseReportFile = (reportText) => {
+            const report = {
+                totalPatients: 0,
+                recordedPatients: 0,
+                schemas: {},
+                features: {}
+            };
+
+            const featureSectionMatch = reportText.match(/^Feature\s+\w+\s+has\s+[\d,]+\s+values/m);
+            let relevantText = reportText;
+
+            if (featureSectionMatch) {
+                relevantText = reportText.substring(0, featureSectionMatch.index);
+            }
+
+            const patientMatch = relevantText.match(/recorded patients\s*=\s*[\d,]+\s*\/\s*([\d,]+)/);
+            if (patientMatch) {
+                report.recordedPatients = parseInt(patientMatch[1].replace(/,/g, ''));
+            }
+
+            const schemaMatches = relevantText.matchAll(/SCHEMA\s*\[(\d+),\s*(\w+)\]\s+PAT CNT=([\d,]+)\s+ROW CNT=([\d,]+)/gs);
+
+            for (const match of schemaMatches) {
+                const schemaName = match[2];
+                const patCount = parseInt(match[3].replace(/,/g, ''));
+                const rowCount = parseInt(match[4].replace(/,/g, ''));
+
+                report.schemas[schemaName] = {
+                    patientCount: patCount,
+                    rowCount: rowCount
+                };
+            }
+
+            return report;
+        };
+
+        const handleReportUpload = (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const text = e.target.result;
+                    try {
+                        const parsed = parseReportFile(text);
+                        setReportData(parsed);
+                    } catch (err) {
+                        alert('Error parsing REPORT.txt. Please check the file format.');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        };
+
+        const parseConfig = (config) => {
+            const result = {
+                dataset: {},
+                variables: {},
+                features: [],
+                vocabs: new Set(),
+                sources: new Set(),
+                populatedFeatures: new Set()
+            };
+
+            const datasetMatch = config.match(/DATASET\s+(\w+)\s*\{([^}]+)\}/);
+            if (datasetMatch) {
+                result.dataset.name = datasetMatch[1];
+                const body = datasetMatch[2];
+
+                const versionMatch = body.match(/DATASET_VERSION\s*=\s*([^\n]+)/);
+                if (versionMatch) result.dataset.version = versionMatch[1].trim();
+
+                const dateMatch = body.match(/DATASET_EFFECTIVE_DATE\s*=\s*([^\n]+)/);
+                if (dateMatch) result.dataset.effectiveDate = dateMatch[1].trim();
+
+                const cutoffMatch = body.match(/FUTURE_CUTOFF\s*=\s*([^\n]+)/);
+                if (cutoffMatch) result.dataset.futureCutoff = cutoffMatch[1].trim();
+
+                const providerMatch = body.match(/DATA_PROVIDER_CODE\s*=\s*([^\n]+)/);
+                if (providerMatch) result.dataset.provider = providerMatch[1].trim();
+
+                const sourceMatch = body.match(/DATA_SOURCE_CODE\s*=\s*([^\n]+)/);
+                if (sourceMatch) result.dataset.source = sourceMatch[1].trim();
+
+                result.dataset.hasEHR = /SOURCE_EHR\s*=\s*TRUE/i.test(body);
+                result.dataset.hasClaims = /SOURCE_MEDICAL_CLAIMS\s*=\s*TRUE/i.test(body) || /SOURCE_RX_CLAIMS\s*=\s*TRUE/i.test(body);
+            }
+
+            const varMatches = config.matchAll(/VARIABLE\s+(\w+)\s*\{([^}]+)\}/g);
+            for (const match of varMatches) {
+                result.variables[match[1]] = match[2].trim();
+            }
+
+            const featureMatches = config.matchAll(/FEATURE\s+(\w+),\s*([^,]+),\s*(\w+)/g);
+            for (const match of featureMatches) {
+                result.features.push({
+                    name: match[1],
+                    alias: match[2].trim(),
+                    type: match[3]
+                });
+            }
+
+            const queryMatches = config.matchAll(/QUERY\s+\w+\s+FROM\s+[^{]+\{([^}]+)\}/gs);
+            for (const match of queryMatches) {
+                const queryBody = match[1];
+                const assignmentMatches = queryBody.matchAll(/(\w+)(?:\.(?:CODE|NAME|START|END))?\s*=\s*([^\n]+)/g);
+
+                for (const assignment of assignmentMatches) {
+                    const featureName = assignment[1];
+                    const value = assignment[2].trim();
+
+                    if (featureName === 'PID' || featureName === 'DOB') continue;
+                    if (value === 'NULL' || value === 'null') continue;
+
+                    result.populatedFeatures.add(featureName);
+                }
+            }
+
+            const dataSchemaPattern = /\$DATA_SCHEMA\.(\w+)/g;
+            let tableMatch;
+            while ((tableMatch = dataSchemaPattern.exec(config)) !== null) {
+                result.sources.add(tableMatch[1]);
+            }
+
+            const transformMatches = config.matchAll(/TRANSFORM\s+FROM\s+(\w+)[^{]*\{[^}]*SOURCE\.FEATURE\s*=\s*"(\w+)"/gs);
+            for (const match of transformMatches) {
+                const feature = match[2];
+                if (feature === 'ICD9') result.vocabs.add('ICD9CM');
+                if (feature === 'ICD10') result.vocabs.add('ICD10CM');
+                if (feature === 'CPT') result.vocabs.add('CPT/HCPCS');
+                if (feature === 'ICD10PCS') result.vocabs.add('ICD10PCS');
+                if (feature === 'RX') result.vocabs.add('RxNorm');
+                if (feature === 'ATC') result.vocabs.add('ATC');
+                if (feature === 'LOINC') result.vocabs.add('LOINC');
+            }
+
+            const hierMatches = config.matchAll(/HIERARCHY\s+FROM\s+(\w+)[^{]*\{[^}]*CHILD\.FEATURE\s*=\s*"(\w+)"/gs);
+            for (const match of hierMatches) {
+                const feature = match[2];
+                if (feature === 'ICD9') result.vocabs.add('ICD9CM');
+                if (feature === 'ICD10') result.vocabs.add('ICD10CM');
+                if (feature === 'CPT') result.vocabs.add('CPT/HCPCS');
+                if (feature === 'ICD10PCS') result.vocabs.add('ICD10PCS');
+                if (feature === 'RX') result.vocabs.add('RxNorm');
+                if (feature === 'ATC') result.vocabs.add('ATC');
+                if (feature === 'LOINC') result.vocabs.add('LOINC');
+            }
+
+            return result;
+        };
+
+        const categorizeFeatures = (features, populatedFeatures) => {
+            const categories = {
+                PERSON: [], VISIT: [], CONDITION: [], PROCEDURE: [],
+                DRUG_EXPOSURE: [], MEASUREMENT: [], PROVIDER: [], PAYER_PLAN: [], COST: []
+            };
+
+            features.forEach(function(f) {
+                const name = f.name.toUpperCase();
+                if (!populatedFeatures.has(f.name)) return;
+
+                if (['GENDER', 'RACE', 'ETHNICITY', 'DEATH', 'ZIP', 'DOB'].includes(name)) {
+                    categories.PERSON.push(f);
+                } else if (name.includes('VISIT') || name === 'VISIT_TYPE') {
+                    categories.VISIT.push(f);
+                } else if (['ICD9', 'ICD10', 'DIAGNOSIS_DATE'].includes(name)) {
+                    categories.CONDITION.push(f);
+                } else if (['CPT', 'ICD10PCS', 'PROCEDURE_DATE'].includes(name)) {
+                    categories.PROCEDURE.push(f);
+                } else if (['RX', 'NDC', 'ATC', 'ROUTE', 'DRUG_EXPOSURE_DATE', 'DRUG_EXPOSURE_TYPE'].includes(name)) {
+                    categories.DRUG_EXPOSURE.push(f);
+                } else if (['LOINC', 'VALUE_AS_NUMBER', 'VALUE_AS_STRING', 'UNIT', 'MEASUREMENT_DATE'].includes(name)) {
+                    categories.MEASUREMENT.push(f);
+                } else if (name.includes('PROVIDER') || name === 'NPI' || name === 'CARE_SITE' || name.includes('SPECIALTY')) {
+                    categories.PROVIDER.push(f);
+                } else if (name.includes('PAYER') || name.includes('PLAN')) {
+                    categories.PAYER_PLAN.push(f);
+                } else if (name.includes('COST') || name.includes('PAID') || name.includes('CHARGE') || name === 'DRG' || name === 'REVENUE_CODE' || name === 'AMOUNT_ALLOWED') {
+                    categories.COST.push(f);
+                }
+            });
+
+            return categories;
+        };
+
+        const generateReleaseNotes = (data, reportData) => {
+            const { dataset, features, vocabs, populatedFeatures } = data;
+            const categories = categorizeFeatures(features, populatedFeatures);
+
+            const today = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+            const dataType = dataset.hasEHR && dataset.hasClaims ? 'EHR + Claims' :
+                dataset.hasEHR ? 'EHR' : dataset.hasClaims ? 'Claims' : 'TBD';
+
+            const totalPatients = reportData?.recordedPatients || 'TBD';
+
+            let md = '# ' + (dataset.name || 'DATASET_NAME') + '-v' + (dataset.version || 'X.X.X') + ' Release Notes\n\n';
+            md += '**Release Date:** ' + today + '\n\n';
+            md += '**Owner:** [Your Name]\n\n';
+            md += '**Status:** Draft\n\n';
+            md += '**JIRA:** [Link to ticket]\n\n';
+            md += '---\n\n';
+
+            md += '## Release Items\n\n';
+            md += '| Item | Content | Note |\n';
+            md += '|------|---------|------|\n';
+            md += '| Environment name | Atropos | |\n';
+            md += '| IP Address and Port | TBD | |\n';
+            md += '| PHX extraction uuid | TBD | |\n';
+            md += '| Link to machine profile | TBD | |\n';
+            md += '| Dataset effective date | ' + (dataset.effectiveDate || 'TBD') + ' | Date source shipped the data |\n';
+            md += '| Future Date Cutoff | ' + (dataset.futureCutoff || 'TBD') + ' | Events after this date will be dropped |\n';
+            md += '| ETL document - Git URL | [Config File](TBD) | |\n';
+            md += '| CDM Version / Docs | v1.4 | |\n';
+            md += '| RC Number that became PROD | TBD | |\n';
+            md += '| Data Diff | TBD | |\n';
+            md += '| RWDS Score | TBD | [Link to scorecard] |\n';
+            md += '| Integration PG | TBD | [Link to workbench] |\n\n';
+
+            md += '## For Internal Releases Only\n\n';
+            md += '| Item | Content | Note |\n';
+            md += '|------|---------|------|\n';
+            md += '| Raw data S3 location | TBD | |\n';
+            md += '| DBX Dataset source schema(s) | TBD | ex: `shc_2022_01_12` in Databricks |\n';
+            md += '| S3 location of artifacts | TBD | root, caches, ETL file, dicts, etc. |\n\n';
+
+            md += '## Quick Facts and Links\n\n';
+
+            if (reportData && Object.keys(reportData.schemas).length > 0) {
+                md += '### Schema Statistics\n\n';
+                md += '| Schema | Patient Count | Row Count |\n';
+                md += '|--------|--------------|------------|\n';
+
+                Object.entries(reportData.schemas).forEach(function(entry) {
+                    md += '| ' + entry[0] + ' | ' + entry[1].patientCount.toLocaleString() + ' | ' + entry[1].rowCount.toLocaleString() + ' |\n';
+                });
+                md += '\n';
+            }
+
+            md += '### Features\n\n';
+
+            Object.entries(categories).forEach(function(entry) {
+                const category = entry[0];
+                const feats = entry[1];
+                if (feats.length > 0) {
+                    md += '**' + category.replace('_', ' ') + '**\n';
+                    feats.forEach(function(f) { md += '- ' + f.name + '\n'; });
+                    md += '\n';
+                }
+            });
+
+            md += '### Sales/CS Q+A\n\n';
+            md += '1. **Is it claims or EMR?** ' + dataType + '\n';
+            md += '2. **Number of Patients:** ' + (typeof totalPatients === 'number' ? totalPatients.toLocaleString() : totalPatients) + '\n';
+            md += '   - How many have >10 events? TBD\n';
+            md += '   - How many have >5 years of data? TBD\n';
+            md += '3. **Do we have procedures?** ' + (categories.PROCEDURE.length > 0 ? '✅ Yes (' + categories.PROCEDURE.map(function(f) { return f.name; }).join(', ') + ')' : '❌ No') + '\n';
+
+            if (reportData && (reportData.schemas.CPT || reportData.schemas.ICD10PCS)) {
+                md += '   - Patient counts:\n';
+                if (reportData.schemas.CPT) md += '     - CPT: ' + reportData.schemas.CPT.patientCount.toLocaleString() + ' patients\n';
+                if (reportData.schemas.ICD10PCS) md += '     - ICD10PCS: ' + reportData.schemas.ICD10PCS.patientCount.toLocaleString() + ' patients\n';
+            }
+
+            md += '4. **Do we have labs?** ' + (categories.MEASUREMENT.length > 0 ? '✅ Yes (LOINC-coded measurements)' : '❌ No') + '\n';
+
+            if (reportData && reportData.schemas.MEASUREMENT) {
+                const measStats = reportData.schemas.MEASUREMENT;
+                md += '   - ' + measStats.patientCount.toLocaleString() + ' patients with measurements\n';
+                md += '   - ' + measStats.rowCount.toLocaleString() + ' total measurement records\n';
+            }
+
+            md += '5. **Do we have lab results?** ' + (categories.MEASUREMENT.some(function(f) { return f.name.includes('VALUE'); }) ? '✅ Yes (numeric and categorical)' : 'TBD') + '\n';
+            md += '6. **Race and Ethnicity Data Availability:**\n';
+            md += '   - Race: ' + (categories.PERSON.some(function(f) { return f.name === 'RACE'; }) ? 'Available (TBD% populated)' : '❌ Not available') + '\n';
+            md += '   - Ethnicity: ' + (categories.PERSON.some(function(f) { return f.name === 'ETHNICITY'; }) ? 'Available (TBD% populated)' : '❌ Not available') + '\n';
+            md += '7. **Death/Mortality Data Availability:** ' + (categories.PERSON.some(function(f) { return f.name === 'DEATH'; }) ? '✅ Yes' : '❌ No') + '\n';
+            md += '8. **Geographic Coverage:** ' + (categories.PERSON.some(function(f) { return f.name === 'ZIP'; }) ? 'ZIP codes available' : 'TBD') + '\n';
+            md += '9. **Provider Identifiers:**\n';
+            md += '   - Provider ID: ' + (categories.PROVIDER.some(function(f) { return f.name === 'PROVIDER_ID'; }) ? '✅ Yes' : '❌ No') + '\n';
+            md += '   - NPI: ' + (categories.PROVIDER.some(function(f) { return f.name === 'NPI'; }) ? '✅ Yes' : '❌ No') + '\n';
+            md += '   - Provider Specialty: ' + (categories.PROVIDER.some(function(f) { return f.name.includes('SPECIALTY'); }) ? '✅ Yes' : '❌ No') + '\n';
+            md += '   - Care Site: ' + (categories.PROVIDER.some(function(f) { return f.name === 'CARE_SITE'; }) ? '✅ Yes' : '❌ No') + '\n';
+            md += '10. **Payer Types:** ' + (categories.PAYER_PLAN.length > 0 ? 'Available - TBD breakdown' : 'Not available') + '\n';
+
+            if (reportData && reportData.schemas.PAYER_PLAN_PERIOD) {
+                md += '    - ' + reportData.schemas.PAYER_PLAN_PERIOD.patientCount.toLocaleString() + ' patients with payer information\n';
+            }
+
+            md += '11. **Cost Data:** ' + (categories.COST.length > 0 ? 'Available (' + categories.COST.length + ' populated cost features)' : '❌ No cost data') + '\n';
+            if (categories.COST.length > 0) {
+                md += '    - Populated Features: ' + categories.COST.map(function(f) { return f.name; }).join(', ') + '\n';
+                if (reportData && reportData.schemas.COST) {
+                    md += '    - ' + reportData.schemas.COST.patientCount.toLocaleString() + ' patients with cost data\n';
+                    md += '    - ' + reportData.schemas.COST.rowCount.toLocaleString() + ' total cost records\n';
+                }
+            }
+            md += '\n';
+
+            md += '**Pre-ETL Validations of Source Data:** [Link to validation spreadsheet]\n\n';
+
+            md += '## Summary of Release\n\n';
+            md += 'This is a ' + (dataset.version ? 'v' + dataset.version : 'new') + ' release of ' + (dataset.source || 'SOURCE') + ' data from ' + (dataset.provider || 'PROVIDER') + '. ';
+            md += 'It includes ' + dataType.toLowerCase() + ' data effective through ' + (dataset.effectiveDate || '[DATE]') + '.\n\n';
+            md += '**Key Highlights:**\n';
+            md += '- **Patient Count:** ' + (typeof totalPatients === 'number' ? totalPatients.toLocaleString() : totalPatients) + '\n';
+            md += '- **Data Types:** ' + dataType + '\n';
+            md += '- **Vocabularies Applied:** ' + (vocabs.size > 0 ? Array.from(vocabs).join(', ') : 'TBD') + '\n';
+            md += '- **Features Available:** ' + features.length + ' features across ' + Object.values(categories).filter(function(c) { return c.length > 0; }).length + ' domains\n\n';
+
+            md += '## Key Warnings\n\n';
+            md += '### Data Quality Notes\n';
+            md += '- [ ] TODO: Document expected NULL percentages for RACE, ETHNICITY\n';
+            md += '- [ ] TODO: Document provider linkage coverage\n';
+            md += '- [ ] TODO: Note any vocabulary mapping gaps\n';
+            md += '- [ ] TODO: Document any measurement value filtering rules\n';
+            md += '- [ ] TODO: Note any deduplication logic applied\n\n';
+
+            md += '### Known Limitations\n';
+            if (!categories.PERSON.some(function(f) { return f.name === 'DEATH'; })) md += '- ⚠️ No death/mortality data available\n';
+            if (categories.COST.length === 0) md += '- ⚠️ No cost data available\n';
+            md += '\n';
+
+            md += '## Data Dictionary\n\n[Link to detailed data dictionary]\n\n';
+
+            md += '## Source Tables Processed\n\n';
+            if (data.sources && data.sources.size > 0) {
+                Array.from(data.sources).sort().forEach(function(tbl) {
+                    md += '- `' + tbl + '`\n';
+                });
+            } else {
+                md += '- TBD (no source tables detected)\n';
+            }
+            md += '\n';
+
+            md += '## Clinical Review\n\n';
+            md += '| Original PG | PG re-run | Results |\n';
+            md += '|-------------|-----------|----------|\n';
+            md += '| [Link] | [Link] | TBD |\n\n';
+
+            md += '### Major Features\n';
+            Object.entries(categories).forEach(function(entry) {
+                const category = entry[0];
+                const feats = entry[1];
+                if (feats.length > 0) md += '- **' + category.replace('_', ' ') + ':** ' + feats.map(function(f) { return f.name; }).join(', ') + '\n';
+            });
+            md += '\n';
+
+            md += '### Vocabulary Review\n';
+            if (vocabs.size > 0) {
+                Array.from(vocabs).forEach(function(v) { md += '- [ ] ' + v + ' reviewed\n'; });
+            } else {
+                md += '- [ ] No vocabularies detected - manual review needed\n';
+            }
+            md += '\n';
+
+            md += '### Major Deficiencies\n- TBD (to be identified during clinical review)\n\n';
+
+            md += '### Prognostogram Tests\n';
+            md += '- [ ] Integration PG completed\n';
+            md += '- [ ] 3-5 validation PGs completed for new dataset / 1-2 for updates\n\n';
+
+            md += '**Final Clinical Decision:** Pending Review ⏳\n\n';
+
+            return md;
+        };
+
+        const handleGenerate = () => {
+            setIsProcessing(true);
+            setTimeout(function() {
+                try {
+                    const parsed = parseConfig(pslConfig);
+                    setParsedData(parsed);
+                    const notes = generateReleaseNotes(parsed, reportData);
+                    setReleaseNotes(notes);
+                } catch (err) {
+                    alert('Error: ' + err.message);
+                }
+                setIsProcessing(false);
+            }, 500);
+        };
+
+        const downloadNotes = () => {
+            const blob = new Blob([releaseNotes], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'release_notes.md';
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+
+        const copyNotes = () => {
+            navigator.clipboard.writeText(releaseNotes);
+            setCopySuccess(true);
+            setTimeout(function() { setCopySuccess(false); }, 2000);
+        };
+
+        return (
+            <div className="min-h-screen p-6" style={{background: 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #0f0f1a 100%)'}}>
+                <div className="max-w-7xl mx-auto">
+                    {/* Header */}
+                    <div className="card-gradient rounded-2xl shadow-2xl p-8 mb-6 border border-gray-800 glow-subtle">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 accent-gradient rounded-xl flex items-center justify-center shadow-lg">
+                                    <span className="text-2xl">📄</span>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-bold text-white">PSL Release Notes Generator</h1>
+                                    <p className="text-gray-400">Auto-generate standardized release notes from your PSL config</p>
+                                </div>
+                            </div>
+                            <a href="/" className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg transition-colors">
+                                <Home />
+                                Home
+                            </a>
+                        </div>
+
+                        <div className="flex gap-2 flex-wrap">
+                            <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-sm rounded-full border border-emerald-500/30">✅ Sales/CS Q&A</span>
+                            <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-sm rounded-full border border-blue-500/30">✅ Feature Detection</span>
+                            <span className="px-3 py-1 bg-purple-500/20 text-purple-400 text-sm rounded-full border border-purple-500/30">✅ Vocabulary Mapping</span>
+                            <span className="px-3 py-1 bg-orange-500/20 text-orange-400 text-sm rounded-full border border-orange-500/30">✅ Clinical Review</span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Left Column */}
+                        <div className="space-y-4">
+                            <div className="card-gradient rounded-xl shadow-xl p-6 border border-gray-800">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-xl font-semibold text-white">PSL Configuration</h2>
+                                    <span className="text-xl">✨</span>
+                                </div>
+
+                                <div
+                                    className={"relative rounded-lg transition-all " + (isDragging ? "ring-2 ring-indigo-500 ring-offset-2 ring-offset-gray-900" : "")}
+                                    onDragEnter={handleDragEnter}
+                                    onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={handleDrop}
+                                >
+                                    {isDragging && (
+                                        <div
+                                            className="absolute inset-0 bg-indigo-600/20 border-2 border-dashed border-indigo-500 rounded-lg flex items-center justify-center z-10 pointer-events-none"
+                                        >
+                                            <div className="text-center">
+                                                <span className="text-4xl">📁</span>
+                                                <p className="text-indigo-300 font-medium mt-2">Drop your config file here</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <textarea
+                                        value={pslConfig}
+                                        onChange={function(e) { setPslConfig(e.target.value); }}
+                                        placeholder="Paste your PSL configuration here or drag & drop a file..."
+                                        className={"w-full h-64 p-4 bg-gray-900/50 border border-gray-700 rounded-lg font-mono text-xs text-gray-300 placeholder-gray-600 resize-none focus:outline-none focus:border-indigo-500 transition-all " + (isDragging ? "pointer-events-none" : "")}
+                                    />
+                                </div>
+
+                                <div className="mt-3 flex items-center gap-3">
+                                    <label className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg cursor-pointer transition text-sm text-gray-300 border border-gray-700">
+                                        <span>📂</span>
+                                        <span>Browse Files</span>
+                                        <input
+                                            type="file"
+                                            accept=".txt,.psl,.config"
+                                            onChange={handleFileSelect}
+                                            className="hidden"
+                                        />
+                                    </label>
+                                    <span className="text-xs text-gray-500">or drag & drop</span>
+                                </div>
+                            </div>
+
+                            <div className="card-gradient rounded-xl shadow-xl p-6 border border-gray-800">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-xl font-semibold text-white">REPORT.txt (Optional)</h2>
+                                    <span className="text-xl">📊</span>
+                                </div>
+
+                                <div className="mb-4">
+                                    <label className="block text-sm text-gray-400 mb-2">
+                                        Upload REPORT.txt to auto-populate patient counts and statistics
+                                    </label>
+                                    <input
+                                        type="file"
+                                        accept=".txt"
+                                        onChange={handleReportUpload}
+                                        className="w-full p-2 bg-gray-900/50 border border-gray-700 rounded-lg text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 file:cursor-pointer"
+                                    />
+                                </div>
+
+                                {reportData && (
+                                    <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span>✅</span>
+                                            <span className="font-semibold text-emerald-400">Report Loaded Successfully</span>
+                                        </div>
+                                        <div className="text-sm text-emerald-300/80 space-y-1">
+                                            <div>✓ Total Patients: {reportData.recordedPatients.toLocaleString()}</div>
+                                            <div>✓ Schemas Detected: {Object.keys(reportData.schemas).length}</div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                onClick={handleGenerate}
+                                disabled={isProcessing || !pslConfig.trim()}
+                                className="w-full accent-gradient text-white py-3 rounded-lg font-semibold hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg glow"
+                            >
+                                {isProcessing ? '⏳ Processing...' : '✨ Generate Release Notes'}
+                            </button>
+
+                            {parsedData && (
+                                <div className="card-gradient rounded-xl shadow-xl p-6 border border-gray-800">
+                                    <h3 className="text-lg font-semibold mb-4 text-white">Detected from Config</h3>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-blue-500/10 border border-blue-500/30 p-4 rounded-lg">
+                                            <div className="text-2xl font-bold text-blue-400">{parsedData.populatedFeatures.size}</div>
+                                            <div className="text-sm text-blue-300/70">Populated Features</div>
+                                        </div>
+                                        <div className="bg-purple-500/10 border border-purple-500/30 p-4 rounded-lg">
+                                            <div className="text-2xl font-bold text-purple-400">{parsedData.vocabs.size}</div>
+                                            <div className="text-sm text-purple-300/70">Vocabularies</div>
+                                        </div>
+                                        <div className="bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-lg">
+                                            <div className="text-2xl font-bold text-emerald-400">{parsedData.sources.size}</div>
+                                            <div className="text-sm text-emerald-300/70">Source Tables</div>
+                                        </div>
+                                        <div className="bg-orange-500/10 border border-orange-500/30 p-4 rounded-lg">
+                                            <div className="text-2xl font-bold text-orange-400">
+                                                {parsedData.dataset.hasEHR && parsedData.dataset.hasClaims ? 'Both' :
+                                                    parsedData.dataset.hasEHR ? 'EHR' : parsedData.dataset.hasClaims ? 'Claims' : 'TBD'}
+                                            </div>
+                                            <div className="text-sm text-orange-300/70">Data Type</div>
+                                        </div>
+                                    </div>
+
+                                    {parsedData.vocabs.size > 0 && (
+                                        <div className="mt-4 pt-4 border-t border-gray-700">
+                                            <div className="text-sm font-semibold text-gray-400 mb-2">Vocabularies Detected:</div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {Array.from(parsedData.vocabs).map(function(v) {
+                                                    return <span key={v} className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded border border-purple-500/30">{v}</span>;
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Right Column */}
+                        <div className="space-y-4">
+                            {releaseNotes ? (
+                                <div className="card-gradient rounded-xl shadow-xl p-6 border border-gray-800">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h2 className="text-xl font-semibold text-white">Generated Release Notes</h2>
+                                        <div className="flex gap-2">
+                                            <button onClick={copyNotes} className="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition text-sm font-medium text-gray-300 border border-gray-700">
+                                                {copySuccess ? '✓ Copied!' : '📋 Copy'}
+                                            </button>
+                                            <button onClick={downloadNotes} className="px-3 py-2 bg-indigo-600/30 hover:bg-indigo-600/50 rounded-lg transition text-sm font-medium text-indigo-300 border border-indigo-500/30">
+                                                ⬇️ Download
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                                        <div className="flex gap-2">
+                                            <span>⚠️</span>
+                                            <div className="text-sm text-amber-300/90">
+                                                <strong>Note:</strong> This is a starter template. Fields marked "TBD" need manual completion.
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <textarea
+                                        value={releaseNotes}
+                                        onChange={function(e) { setReleaseNotes(e.target.value); }}
+                                        className="w-full h-96 p-4 bg-gray-900/50 border border-gray-700 rounded-lg font-mono text-xs text-gray-300 resize-none focus:outline-none focus:border-indigo-500 transition-all"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="card-gradient rounded-xl shadow-xl p-12 text-center h-full flex flex-col items-center justify-center border border-gray-800 min-h-96">
+                                    <div className="text-6xl mb-4 opacity-50">📄</div>
+                                    <h3 className="text-xl font-semibold text-white mb-2">No Release Notes Yet</h3>
+                                    <p className="text-gray-400 mb-6">Paste your PSL config and click generate to create release notes</p>
+
+                                    <div className="text-left bg-gray-900/50 p-4 rounded-lg max-w-md border border-gray-700">
+                                        <div className="text-sm font-semibold text-gray-300 mb-2">What will be generated:</div>
+                                        <ul className="text-sm text-gray-400 space-y-1">
+                                            <li>✓ Release items table</li>
+                                            <li>✓ Feature list by domain</li>
+                                            <li>✓ Sales/CS Q&A (auto-answered)</li>
+                                            <li>✓ Vocabulary detection</li>
+                                            <li>✓ Clinical review checklist</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="mt-8 text-center text-gray-600 text-sm">
+                        PSL Release Notes Generator • Built for Atropos Health
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    ReactDOM.render(<PSLReleaseNotesGenerator />, document.getElementById('root'));
+</script>
+</body>
+</html>

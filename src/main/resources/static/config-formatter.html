@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSL Config Formatter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <style>
+        body { background: #0f0f1a; }
+        .glow { box-shadow: 0 0 20px rgba(168, 85, 247, 0.4); }
+        .accent-gradient { background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%); }
+        .card-gradient { background: linear-gradient(145deg, #1a1a2e 0%, #16162a 100%); }
+
+        /* CodeMirror PSL Syntax Colors - Dan's Sublime Theme */
+        .CodeMirror {
+            height: 600px !important;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            background: #0a0a14 !important;
+            color: #e0e0e0;
+        }
+        .CodeMirror-gutters {
+            background: #0a0a14;
+            border-right: 1px solid #2a2a3a;
+        }
+        .CodeMirror-linenumber { color: #4a4a5a; }
+        .CodeMirror-cursor { border-left: 2px solid #a855f7 !important; }
+        .CodeMirror-selected { background: rgba(168, 85, 247, 0.2) !important; }
+
+        /* PSL Syntax Highlighting */
+        .cm-keyword-dataset { color: #9370db; } /* mediumpurple - DATASET */
+        .cm-variable-declaration { color: #b0e0e6; font-style: italic; } /* powderblue - dataset names */
+        .cm-keyword-url { color: #00bfff; font-style: italic; } /* deepskyblue - url */
+        .cm-keyword-dataset-var { color: #7fffd4; font-style: italic; } /* aquamarine - PRECISION, etc */
+        .cm-keyword-connection { color: #ff8c00; } /* darkorange - CONNECTION */
+        .cm-keyword-map { color: #ff6347; } /* tomato - MAP */
+        .cm-variable-map { color: #afeeee; font-style: italic; } /* paleturquoise - map names */
+        .cm-keyword-from { color: #f0e68c; } /* khaki - FROM */
+        .cm-keyword-transform { color: #ff69b4; } /* hotpink - TRANSFORM */
+        .cm-keyword-var { color: #00ff00; } /* green - VAR */
+        .cm-keyword-pid { color: #00ffff; } /* aqua - PID */
+        .cm-keyword-assert { color: #00fa9a; } /* mediumspringgreen - ASSERT */
+        .cm-keyword-query { color: #e9967a; font-weight: bold; } /* darksalmon - QUERY */
+        .cm-keyword-schema { color: #ffe4c4; } /* bisque - SCHEMA */
+        .cm-keyword-target { color: #eee8aa; } /* palegoldenrod - TARGET */
+        .cm-keyword-start { color: #00ffff; } /* cyan - START */
+        .cm-keyword-end { color: #ff1493; } /* deeppink - END */
+        .cm-keyword-hierarchy { color: #ffff00; } /* yellow - HIERARCHY */
+        .cm-keyword-null { color: #dc143c; } /* crimson - NULL */
+        .cm-keyword-control { color: #87ceeb; } /* skyblue - TQL, CSV */
+        .cm-constant-sql { color: #ffffe0; } /* lightyellow - SQL constants */
+        .cm-keyword-select { color: #6495ed; } /* cornflowerblue - SELECT */
+        .cm-keyword-declaration { color: #fafad2; } /* lightgoldenrodyellow - CPT, ICD9 */
+
+        .cm-comment { color: #fff8dc; font-style: italic; } /* cornsilk - comments */
+        .cm-string { color: #98fb98; } /* palegreen - strings */
+        .cm-number { color: #ffa07a; } /* lightsalmon - numbers */
+    </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const Home = ({ className }) => (
+        <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+    );
+
+    const Download = ({ className }) => (
+        <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+    );
+
+    const Wand = ({ className }) => (
+        <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M15 4V2"/>
+            <path d="M15 16v-2"/>
+            <path d="M8 9h2"/>
+            <path d="M20 9h2"/>
+            <path d="M17.8 11.8 19 13"/>
+            <path d="M15 9h0"/>
+            <path d="M17.8 6.2 19 5"/>
+            <path d="m3 21 9-9"/>
+            <path d="M12.2 6.2 11 5"/>
+        </svg>
+    );
+
+    function ConfigFormatter() {
+        const [config, setConfig] = useState('');
+        const [formatted, setFormatted] = useState(false);
+        const editorRef = useRef(null);
+        const cmInstanceRef = useRef(null);
+
+        useEffect(() => {
+            if (editorRef.current && !cmInstanceRef.current) {
+                // Define PSL mode
+                CodeMirror.defineMode("psl", function() {
+                    return {
+                        token: function(stream, state) {
+                            // Comments
+                            if (stream.match(/^#.*/)) {
+                                return "comment";
+                            }
+
+                            // Strings
+                            if (stream.match(/^"(?:[^"\\]|\\.)*"/)) {
+                                return "string";
+                            }
+
+                            // Numbers
+                            if (stream.match(/^-?\d+\.?\d*/)) {
+                                return "number";
+                            }
+
+                            // FEATURE keyword - then set flag for next token
+                            if (stream.match(/\b(FEATURE)\b/i)) {
+                                state.afterFeature = true;
+                                return "keyword-transform";
+                            }
+
+                            // Feature name after FEATURE keyword (make it blue)
+                            if (state.afterFeature && stream.match(/\b\w+\b/)) {
+                                state.afterFeature = false;
+                                return "variable-declaration";
+                            }
+
+                            // Keywords by color groups
+                            if (stream.match(/\b(DATASET)\b/i)) return "keyword-dataset";
+                            if (stream.match(/\b(CONNECTION)\b/i)) return "keyword-connection";
+                            if (stream.match(/\b(MAP)\b/i)) return "keyword-map";
+                            if (stream.match(/\b(FROM|FILE|DEDUPLICATED)\b/i)) return "keyword-from";
+                            if (stream.match(/\b(TRANSFORM|IMPORT)\b/i)) return "keyword-transform";
+                            if (stream.match(/\b(VARIABLE|VAR)\b/i)) return "keyword-var";
+                            if (stream.match(/\b(PID|DOB)\b/i)) return "keyword-pid";
+                            if (stream.match(/\b(ASSERT|OR|LEFT|STRING|IF|EQUALS|DATE)\b/i)) return "keyword-assert";
+                            if (stream.match(/\b(QUERY|CACHE|SORT COLUMN)\b/i)) return "keyword-query";
+                            if (stream.match(/\b(SCHEMA|CODE|SOURCE|KEY|PARENT|PARENT_CODE)\b/i)) return "keyword-schema";
+                            if (stream.match(/\b(TARGET|NAME|VALUE|CASE|CHILD|CHILD_CODE)\b/i)) return "keyword-target";
+                            if (stream.match(/\b(START|CDM)\b/i)) return "keyword-start";
+                            if (stream.match(/\b(END|VARCHAR|DISTINCT)\b/i)) return "keyword-end";
+                            if (stream.match(/\b(HIERARCHY)\b/i)) return "keyword-hierarchy";
+                            if (stream.match(/\b(NULL)\b/)) return "keyword-null";
+                            if (stream.match(/\b(TQL|CSV)\b/i)) return "keyword-control";
+                            if (stream.match(/\b(SELECT)\b/i)) return "keyword-select";
+                            if (stream.match(/\b(WHERE|ORDER BY|LIMIT|UNION|INNER JOIN|LEFT JOIN|WHEN|ELSE|THEN|CAST|AS|CONCAT|FOR|IS|IN|NOT|AND|SUBSTRING|EXTEND BY|LENGTH|COALESCE|ROW_NUMBER|OVER|PARTITION BY|CASE)\b/i)) return "keyword-start";
+                            if (stream.match(/\b(PRECISION|COMPRESSION|STATISTICS|ENVIRONMENT|DATA_PROVIDER_CODE|DATA_SOURCE_CODE|DATASET_VERSION|FUTURE_CUTOFF|SOURCE_RX_CLAIMS|SOURCE_MEDICAL_CLAIMS|SOURCE_OMOP|SOURCE_EHR|GEOGRAPHIC_ENTITY_TYPE|DATASET_ETL_DATETIME|DATASET_DESCRIPTION_JSON|DATASET_STATISTICS_JSON|DATASET_ETL_ID|DATASET_EFFECTIVE_DATE)\b/i)) return "keyword-dataset-var";
+                            if (stream.match(/\b(url)\b/i)) return "keyword-url";
+                            if (stream.match(/\b(CPT|ICD9|ICD10|ICD10PCS|RxNorm|LOINC|NDC|VISIT_TYPE|RACE|ETHNICITY|GENDER|ATC|SNOMED|INDEXED|SEARCHABLE|DATE_START_END|METALINK|DOUBLE)\b/i)) return "keyword-declaration";
+                            if (stream.match(/\b(person_id|condition_start_date|concept_id|vocabulary_id|drug_exposure|measurement|procedure_occurrence|visit_occurrence|concept_code|concept_name|PATIENT LEVEL|DATASET LEVEL)\b/i)) return "constant-sql";
+                            if (stream.match(/\*\w+\*/)) return "keyword-assert";
+                            if (stream.match(/\$/)) return "keyword-assert";
+
+                            stream.next();
+                            return null;
+                        },
+                        startState: function() { return { afterFeature: false }; }
+                    };
+                });
+
+                cmInstanceRef.current = CodeMirror.fromTextArea(editorRef.current, {
+                    mode: "psl",
+                    theme: "default",
+                    lineNumbers: true,
+                    lineWrapping: false,
+                    indentUnit: 4,
+                    tabSize: 4,
+                    indentWithTabs: false
+                });
+
+                cmInstanceRef.current.on('change', (cm) => {
+                    setConfig(cm.getValue());
+                });
+            }
+        }, []);
+
+        const formatConfig = () => {
+            let text = cmInstanceRef.current.getValue();
+
+            // Normalize spacing between keywords on the SAME LINE (not across lines)
+            // Replace multiple spaces with single space, but preserve newlines
+            text = text.split('\n').map(line => line.replace(/\s{2,}/g, ' ')).join('\n');
+
+            // Normalize spacing around = (but not in SQL)
+            text = text.replace(/^(\s*)(\w+)\s*=\s*(?!.*SELECT)/gm, '$1$2 = ');
+
+            // Normalize spacing around { (keep on same line)
+            text = text.replace(/\s*{\s*/g, ' {\n');
+
+            // Ensure closing braces are on their own line
+            text = text.replace(/([^\n])\s*}/g, '$1\n}');
+
+            // First pass: Standardize basic indentation (4 spaces)
+            const lines = text.split('\n');
+            let indentLevel = 0;
+            const formattedLines = lines.map(line => {
+                const trimmed = line.trim();
+                if (!trimmed) return '';
+
+                // Don't re-indent lines that are part of SQL queries
+                if (trimmed.match(/^(SELECT|FROM|WHERE|LEFT JOIN|INNER JOIN|ORDER BY|CASE|WHEN|THEN|ELSE|END|ON|AND|PARTITION BY)/i)) {
+                    return line; // Keep existing indentation for SQL
+                }
+
+                if (trimmed === '}') {
+                    indentLevel = Math.max(0, indentLevel - 1);
+                }
+
+                const indented = '    '.repeat(indentLevel) + trimmed;
+
+                if (trimmed.endsWith('{')) {
+                    indentLevel++;
+                }
+
+                return indented;
+            });
+
+            text = formattedLines.join('\n');
+
+            // NOW format SQL queries with proper multi-line indentation
+            text = text.replace(/(QUERY\s*=\s*)(SELECT[\s\S]*?)(\n\s*(?:}|FEATURE|CONNECTION|QUERY|SCHEMA|MAP|HIERARCHY|TRANSFORM|DATASET|VARIABLE|TQL|CSV))/gi,
+                (match, prefix, sql, suffix) => {
+                    // Count the base indentation level
+                    const baseIndent = prefix.match(/^(\s*)/)[1];
+                    const formatted = formatSQLMultiLine(sql, baseIndent);
+                    return prefix + formatted + suffix;
+                }
+            );
+
+            // Remove excessive blank lines (max 2 consecutive)
+            text = text.replace(/\n{3,}/g, '\n\n');
+
+            // Remove blank lines within blocks (between { and })
+            text = text.replace(/(\{[^\}]*?)\n\s*\n([^\}]*?\})/g, (match, start, end) => {
+                // Remove blank lines but keep structure
+                return start.replace(/\n\s*\n/g, '\n') + '\n' + end;
+            });
+
+            cmInstanceRef.current.setValue(text);
+            setFormatted(true);
+            setTimeout(() => setFormatted(false), 2000);
+        };
+
+        const formatSQLMultiLine = (sql, baseIndent = '') => {
+            // Uppercase SQL keywords
+            const keywords = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'ORDER BY', 'LIMIT', 'UNION',
+                'LEFT JOIN', 'INNER JOIN', 'RIGHT JOIN', 'FULL JOIN', 'ON', 'AS',
+                'DISTINCT', 'CAST', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'IS',
+                'NOT', 'NULL', 'IN', 'BETWEEN', 'COALESCE', 'SUBSTRING', 'LENGTH',
+                'CONCAT', 'ROW_NUMBER', 'OVER', 'PARTITION BY', 'DATE', 'DATEADD'];
+
+            let formatted = sql.trim();
+
+            // Uppercase keywords
+            keywords.forEach(kw => {
+                const regex = new RegExp('\\b' + kw + '\\b', 'gi');
+                formatted = formatted.replace(regex, kw.toUpperCase());
+            });
+
+            // Normalize whitespace first
+            formatted = formatted.replace(/\s+/g, ' ');
+
+            // Calculate indentation - we're at QUERY = level, need to indent relative to that
+            const queryIndent = baseIndent + '    '; // Base indent + 4 for being inside CONNECTION block
+            const colIndent = queryIndent + '            '; // Columns indent from QUERY line
+            const clauseIndent = queryIndent + '        '; // FROM, WHERE indent
+            const whereCondIndent = queryIndent + '            '; // WHERE conditions
+
+            // SELECT stays on same line, columns on next lines
+            formatted = formatted.replace(/SELECT\s+/gi, 'SELECT\n' + colIndent);
+
+            // Columns - each on new line
+            formatted = formatted.replace(/,\s*(?![^()]*\))/g, ',\n' + colIndent);
+
+            // FROM on new line
+            formatted = formatted.replace(/\s+FROM\s+/gi, '\n' + clauseIndent + 'FROM\n' + colIndent);
+
+            // LEFT JOIN, INNER JOIN on new line
+            formatted = formatted.replace(/\s+(LEFT JOIN|INNER JOIN|RIGHT JOIN|FULL JOIN)\s+/gi,
+                '\n' + colIndent + '$1 ');
+
+            // Subqueries - handle SELECT within parens
+            formatted = formatted.replace(/\(\s*SELECT/gi, '(\n' + colIndent + '    SELECT');
+            formatted = formatted.replace(/\)\s+AS\s+/gi, '\n' + clauseIndent + ') AS ');
+
+            // ON clause
+            formatted = formatted.replace(/\s+ON\s+/gi, '\n' + colIndent + 'ON\n' + colIndent + '    ');
+
+            // WHERE clause
+            formatted = formatted.replace(/\s+WHERE\s+/gi, '\n' + clauseIndent + 'WHERE\n' + whereCondIndent);
+
+            // AND in WHERE (each on new line with proper indent)
+            formatted = formatted.replace(/\sAND\s(?![^(]*\))/gi, '\n' + whereCondIndent + 'AND ');
+
+            // ORDER BY
+            formatted = formatted.replace(/\s+ORDER BY\s+/gi, '\n' + clauseIndent + 'ORDER BY\n' + colIndent);
+
+            // CASE statements
+            formatted = formatted.replace(/\s+CASE\s+/gi, '\n' + colIndent + '    CASE\n' + colIndent + '        ');
+            formatted = formatted.replace(/\s+WHEN\s+/gi, '\n' + colIndent + '        WHEN ');
+            formatted = formatted.replace(/\s+THEN\s+/gi, ' THEN ');
+            formatted = formatted.replace(/\s+ELSE\s+/gi, '\n' + colIndent + '        ELSE ');
+            formatted = formatted.replace(/\s+END\s*,/gi, '\n' + colIndent + '    END,');
+            formatted = formatted.replace(/\s+END\s*$/gi, '\n' + colIndent + '    END');
+
+            return formatted;
+        };
+
+        const downloadConfig = () => {
+            const text = cmInstanceRef.current.getValue();
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'formatted_config.psl';
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+
+        const loadExample = () => {
+            const example = `DATASET EXAMPLE {
+    PRECISION = DAY
+    COMPRESSION = TRUE
+    STATISTICS = FALSE
+    DATA_PROVIDER_CODE = TEST
+}
+
+FEATURE ICD10, ICD10, STRING, INDEXED, SEARCHABLE
+
+CONNECTION TEST_CONN FROM SOURCE {
+    CACHE = test_cache
+    QUERY = SELECT patient_id, diagnosis_code, diagnosis_date FROM medical_claims WHERE diagnosis_code_type = 'ICD10'
+}
+
+SCHEMA CONDITION {
+    ICD10
+    DIAGNOSIS_DATE
+}
+
+QUERY CONDITION FROM TEST_CONN {
+    PID = *patient_id*
+    ICD10 = *diagnosis_code*
+    DIAGNOSIS_DATE.START = *diagnosis_date*
+}`;
+            cmInstanceRef.current.setValue(example);
+        };
+
+        return (
+            <div className="min-h-screen p-6">
+                <div className="max-w-7xl mx-auto">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-6">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white">PSL Config Formatter</h1>
+                            <p className="text-gray-400 text-sm">Format PSL configs with proper indentation and SQL styling</p>
+                        </div>
+                        <a href="/" className="flex flex-col items-center gap-1 text-gray-400 hover:text-purple-400 transition-colors">
+                            <Home className="w-6 h-6" />
+                            <span className="text-sm">Home</span>
+                        </a>
+                    </div>
+
+                    {/* Main Card */}
+                    <div className="card-gradient rounded-xl shadow-xl p-6 border border-purple-900/30">
+                        {/* Controls */}
+                        <div className="flex gap-3 mb-4">
+                            <button
+                                onClick={formatConfig}
+                                className="flex items-center gap-2 px-4 py-2 accent-gradient text-white rounded-lg font-medium glow hover:opacity-90 transition-all"
+                            >
+                                <Wand className="w-5 h-5" />
+                                Format Config
+                            </button>
+                            <button
+                                onClick={downloadConfig}
+                                className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg font-medium hover:bg-gray-700 transition-all"
+                            >
+                                <Download className="w-5 h-5" />
+                                Download
+                            </button>
+                            <button
+                                onClick={loadExample}
+                                className="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg font-medium hover:bg-gray-700 transition-all"
+                            >
+                                Load Example
+                            </button>
+                            {formatted && (
+                                <div className="ml-auto flex items-center gap-2 text-green-400 animate-pulse">
+                                    <span className="text-lg">✓</span>
+                                    <span className="font-medium">Formatted!</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Editor */}
+                        <div className="border border-purple-900/30 rounded-lg overflow-hidden">
+                            <textarea ref={editorRef} />
+                        </div>
+
+                        {/* Info */}
+                        <div className="mt-4 p-4 bg-purple-950/20 border border-purple-900/30 rounded-lg">
+                            <h3 className="text-purple-300 font-semibold mb-2">Formatting Features:</h3>
+                            <ul className="text-gray-400 text-sm space-y-1">
+                                <li>• Standardizes indentation (4 spaces)</li>
+                                <li>• Formats SQL queries (uppercase keywords, proper spacing)</li>
+                                <li>• Aligns brackets consistently (opening on same line)</li>
+                                <li>• Normalizes spacing around =, {'{}'}</li>
+                                <li>• Removes excessive blank lines</li>
+                                <li>• Syntax highlighting using your Sublime color scheme</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    ReactDOM.render(<ConfigFormatter />, document.getElementById('root'));
+</script>
+</body>
+</html>
