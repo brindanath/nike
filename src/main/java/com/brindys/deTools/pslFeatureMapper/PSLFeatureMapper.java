@@ -12,6 +12,8 @@ public class PSLFeatureMapper {
   private Map<String, String> variables = new HashMap<>();
   private String datasetName = "UNKNOWN";
   private String datasetVersion = "UNKNOWN";
+  private List<Transform> transforms = new ArrayList<>();
+  private List<Hierarchy> hierarchies = new ArrayList<>();
 
   public static void main(String[] args) {
     // Test with the Emory config
@@ -106,7 +108,7 @@ public class PSLFeatureMapper {
         + "#----------------------------DB CONNECTION-----------------------------------------\n"
         + "\n"
         + "CONNECTION OPTUM {\n"
-        + "         url=jdbc"
+        + "         url=jdbc:2\n"
         + "\n"
         + "        }\n"
         + "\n"
@@ -1026,8 +1028,8 @@ public class PSLFeatureMapper {
         + "\n"
         + "TRANSFORM FROM CPT_DICT {\n"
         + "        SOURCE.FEATURE = \"CPT\"\n"
-        + "        SOURCE.CODE = C1\n"
-        + "        TARGET.NAME = C2\n"
+        + "        SOURCE.CODE = *concept_code*\n"
+        + "        TARGET.NAME = *concept_name*\n"
         + "}\n"
         + "\n"
         + "CONNECTION ICD9_DICT FROM OPTUM {\n"
@@ -1037,20 +1039,20 @@ public class PSLFeatureMapper {
         + "\n"
         + "TRANSFORM FROM ICD9_DICT {\n"
         + "        SOURCE.FEATURE = \"ICD9\"\n"
-        + "        SOURCE.CODE = C1\n"
-        + "        TARGET.NAME = C2\n"
+        + "        SOURCE.CODE = *concept_code*\n"
+        + "        TARGET.NAME = *concept_name*\n"
         + "\n"
         + "}\n"
         + "\n"
         + "MAP ICD10CODE FROM ICD10_DICT {\n"
-        + "    KEY = C3\n"
-        + "    VALUE = C1\n"
+        + "    KEY = *code_np*\n"
+        + "    VALUE = *concept_code*\n"
         + "    CASE = FALSE\n"
         + "}\n"
         + "\n"
         + "MAP ICD9CODE FROM ICD9_DICT {\n"
-        + "    KEY = C3\n"
-        + "    VALUE = C1\n"
+        + "    KEY = *code_np*\n"
+        + "    VALUE = *concept_code*\n"
         + "    CASE = FALSE\n"
         + "}\n"
         + "\n"
@@ -1061,8 +1063,8 @@ public class PSLFeatureMapper {
         + "\n"
         + "TRANSFORM FROM ICD10_DICT {\n"
         + "        SOURCE.FEATURE = \"ICD10\"\n"
-        + "        SOURCE.CODE = C1\n"
-        + "        TARGET.NAME = C2\n"
+        + "        SOURCE.CODE = *concept_code*\n"
+        + "        TARGET.NAME = *concept_name*\n"
         + "\n"
         + "}\n"
         + "\n"
@@ -1080,14 +1082,14 @@ public class PSLFeatureMapper {
         + "HIERARCHY FROM ATC_TO_RXNORM {\n"
         + "        CHILD.FEATURE = \"RX\"\n"
         + "        PARENT.FEATURE = \"ATC\"\n"
-        + "        CHILD.CODE = C3\n"
-        + "        PARENT.CODE = C1\n"
+        + "        CHILD.CODE = *des_concept_code*\n"
+        + "        PARENT.CODE = *anc_concept_code*\n"
         + "}\n"
         + "\n"
         + "TRANSFORM FROM ATC_NAME {\n"
         + "        SOURCE.FEATURE = \"ATC\"\n"
-        + "        SOURCE.CODE = C1\n"
-        + "        TARGET.NAME = C2\n"
+        + "        SOURCE.CODE = *anc_concept_code*\n"
+        + "        TARGET.NAME = *anc_concept_name*\n"
         + "}\n"
         + "\n"
         + "CONNECTION ATC_HIER FROM OPTUM{\n"
@@ -1098,8 +1100,8 @@ public class PSLFeatureMapper {
         + "HIERARCHY FROM ATC_HIER {\n"
         + "    CHILD.FEATURE = \"ATC\"\n"
         + "    PARENT.FEATURE = \"ATC\"\n"
-        + "    CHILD.CODE = C1\n"
-        + "    PARENT.CODE = C2\n"
+        + "    CHILD.CODE = *des_concept_code*\n"
+        + "    PARENT.CODE = *anc_concept_code*\n"
         + "}\n"
         + "\n"
         + "CONNECTION RXNORM_TO_RXNORM FROM OPTUM {\n"
@@ -1110,8 +1112,8 @@ public class PSLFeatureMapper {
         + "HIERARCHY FROM RXNORM_TO_RXNORM {\n"
         + "        CHILD.FEATURE = \"RX\"\n"
         + "        PARENT.FEATURE = \"RX\"\n"
-        + "        CHILD.CODE = C3\n"
-        + "        PARENT.CODE = C1\n"
+        + "        CHILD.CODE = *des_concept_code*\n"
+        + "        PARENT.CODE = *anc_concept_code*\n"
         + "}\n"
         + "\n"
         + "CONNECTION RX_DICT FROM OPTUM {\n"
@@ -1121,8 +1123,8 @@ public class PSLFeatureMapper {
         + "\n"
         + "TRANSFORM FROM RX_DICT {\n"
         + "        SOURCE.FEATURE = \"RX\"\n"
-        + "        SOURCE.CODE = C1\n"
-        + "        TARGET.NAME = C2\n"
+        + "        SOURCE.CODE = *concept_code*\n"
+        + "        TARGET.NAME = *concept_name*\n"
         + "}\n"
         + "\n"
         + "\n"
@@ -1133,8 +1135,8 @@ public class PSLFeatureMapper {
         + "\n"
         + "TRANSFORM FROM ICD10PCS_DICT {\n"
         + "        SOURCE.FEATURE = \"ICD10PCS\"\n"
-        + "        SOURCE.CODE = C1\n"
-        + "        TARGET.NAME = C2\n"
+        + "        SOURCE.CODE = *concept_code*\n"
+        + "        TARGET.NAME = *concept_name*\n"
         + "}\n"
         + "\n"
         + "CONNECTION ICD10PCS_HIER FROM OPTUM {\n"
@@ -1145,22 +1147,20 @@ public class PSLFeatureMapper {
         + "HIERARCHY FROM ICD10PCS_HIER {\n"
         + "    CHILD.FEATURE = \"ICD10PCS\"\n"
         + "    PARENT.FEATURE = \"ICD10PCS\"\n"
-        + "    CHILD.CODE = C1\n"
-        + "    PARENT.CODE = C2\n"
+        + "    CHILD.CODE = *CHILD_CODE*\n"
+        + "    PARENT.CODE = *PARENT_CODE*\n"
         + "}\n"
         + "\n"
         + "HIERARCHY FROM ICD9_HIER {\n"
         + "    CHILD.FEATURE = \"ICD9\"\n"
         + "    PARENT.FEATURE = \"ICD9\"\n"
-        + "    CHILD.CODE = C1\n"
-        + "    PARENT.CODE = C2\n"
+        + "    CHILD.CODE = *CHILD_CODE*\n"
         + "}\n"
         + "\n"
         + "HIERARCHY FROM ICD10_HIER {\n"
         + "    CHILD.FEATURE = \"ICD10\"\n"
         + "    PARENT.FEATURE = \"ICD10\"\n"
-        + "    CHILD.CODE = C1\n"
-        + "    PARENT.CODE = C2\n"
+        + "    CHILD.CODE = *CHILD_CODE*\n"
         + "}\n"
         + "\n"
         + "\n"
@@ -1171,8 +1171,8 @@ public class PSLFeatureMapper {
         + "\n"
         + "TRANSFORM FROM LOINC_DICT {\n"
         + "        SOURCE.FEATURE = \"LOINC\"\n"
-        + "        SOURCE.CODE = C1\n"
-        + "        TARGET.NAME = C2\n"
+        + "        SOURCE.CODE = *concept_code*\n"
+        + "        TARGET.NAME = *concept_name*\n"
         + "}\n"
         + "\n"
         + "CONNECTION VISIT_TYPE_HIER {\n"
@@ -1304,7 +1304,82 @@ public class PSLFeatureMapper {
 
     // Parse query blocks (separate from schemas)
     parseQueries(pslContent);
+
+    // Parse transforms (vocabulary mappings)
+    parseTransforms(pslContent);
+
+    // Parse hierarchies
+    parseHierarchies(pslContent);
   }
+
+
+  private void parseTransforms(String content) {
+    Pattern transformPattern = Pattern.compile(
+        "TRANSFORM\\s+FROM\\s+(\\w+)\\s*\\{([^}]+)\\}",
+        Pattern.DOTALL
+    );
+    Matcher matcher = transformPattern.matcher(content);
+
+    while (matcher.find()) {
+      String connectionName = matcher.group(1);
+      String transformBody = matcher.group(2);
+
+      // Extract SOURCE.FEATURE
+      Pattern featurePattern = Pattern.compile(
+          "SOURCE\\.FEATURE\\s*=\\s*\"([^\"]+)\"",
+          Pattern.CASE_INSENSITIVE
+      );
+      Matcher featureMatcher = featurePattern.matcher(transformBody);
+
+      String sourceFeature = null;
+      if (featureMatcher.find()) {
+        sourceFeature = featureMatcher.group(1);
+      }
+
+      if (sourceFeature != null) {
+        // Get the connection to find the source
+        Connection conn = connections.get(connectionName);
+        String vocabularySource = null;
+
+        if (conn != null) {
+          if (conn.query != null && !conn.query.isEmpty()) {
+            // Extract table from query
+            vocabularySource = extractTableFromQuery(conn.query);
+          }
+        } else {
+          // Check if it's a file-based connection
+          Pattern fileConnPattern = Pattern.compile(
+              "CONNECTION\\s+" + connectionName + "\\s*\\{\\s*FILE\\s*=\\s*([^\\s}]+)",
+              Pattern.DOTALL | Pattern.CASE_INSENSITIVE
+          );
+          Matcher fileConnMatcher = fileConnPattern.matcher(content);
+          if (fileConnMatcher.find()) {
+            vocabularySource = fileConnMatcher.group(1);
+          }
+        }
+
+        if (vocabularySource != null) {
+          transforms.add(new Transform(sourceFeature, vocabularySource));
+        }
+      }
+    }
+  }
+
+  private String extractTableFromQuery(String query) {
+    // Look for FROM clause with table name
+    Pattern fromPattern = Pattern.compile(
+        "FROM\\s+([\\w.]+)",
+        Pattern.CASE_INSENSITIVE
+    );
+    Matcher matcher = fromPattern.matcher(query);
+
+    if (matcher.find()) {
+      return matcher.group(1);
+    }
+
+    return "UNKNOWN_TABLE";
+  }
+
 
   private String removeComments(String content) {
     // Remove single-line comments starting with #
@@ -1343,6 +1418,109 @@ public class PSLFeatureMapper {
         break;
       }
     }
+  }
+
+  private void parseHierarchies(String content) {
+    Pattern hierarchyPattern = Pattern.compile(
+        "HIERARCHY\\s+FROM\\s+(\\w+)\\s*\\{([^}]+)\\}",
+        Pattern.DOTALL
+    );
+    Matcher matcher = hierarchyPattern.matcher(content);
+
+    while (matcher.find()) {
+      String connectionName = matcher.group(1);
+      String hierarchyBody = matcher.group(2);
+
+      // Extract CHILD.FEATURE
+      Pattern childFeaturePattern = Pattern.compile(
+          "CHILD\\.FEATURE\\s*=\\s*\"([^\"]+)\"",
+          Pattern.CASE_INSENSITIVE
+      );
+      Matcher childFeatureMatcher = childFeaturePattern.matcher(hierarchyBody);
+      String childFeature = null;
+      if (childFeatureMatcher.find()) {
+        childFeature = childFeatureMatcher.group(1);
+      }
+
+      // Extract PARENT.FEATURE
+      Pattern parentFeaturePattern = Pattern.compile(
+          "PARENT\\.FEATURE\\s*=\\s*\"([^\"]+)\"",
+          Pattern.CASE_INSENSITIVE
+      );
+      Matcher parentFeatureMatcher = parentFeaturePattern.matcher(hierarchyBody);
+      String parentFeature = null;
+      if (parentFeatureMatcher.find()) {
+        parentFeature = parentFeatureMatcher.group(1);
+      }
+
+      // Extract CHILD.CODE
+      Pattern childCodePattern = Pattern.compile(
+          "CHILD\\.CODE\\s*=\\s*(.+?)(?=\\s*$|\\s*PARENT)",
+          Pattern.CASE_INSENSITIVE | Pattern.MULTILINE
+      );
+      Matcher childCodeMatcher = childCodePattern.matcher(hierarchyBody);
+      String childCode = null;
+      if (childCodeMatcher.find()) {
+        childCode = childCodeMatcher.group(1).trim();
+      }
+
+      // Extract PARENT.CODE
+      Pattern parentCodePattern = Pattern.compile(
+          "PARENT\\.CODE\\s*=\\s*(.+?)(?=\\s*$)",
+          Pattern.CASE_INSENSITIVE | Pattern.MULTILINE
+      );
+      Matcher parentCodeMatcher = parentCodePattern.matcher(hierarchyBody);
+      String parentCode = null;
+      if (parentCodeMatcher.find()) {
+        parentCode = parentCodeMatcher.group(1).trim();
+      }
+
+      if (childFeature != null && parentFeature != null && childCode != null && parentCode != null) {
+        // Get the connection to find the source
+        Connection conn = connections.get(connectionName);
+        String sourceTable = null;
+
+        if (conn != null && conn.query != null && !conn.query.isEmpty()) {
+          // Extract table from query
+          sourceTable = extractTableFromQuery(conn.query);
+        } else {
+          // Check if it's a file-based connection
+          Pattern fileConnPattern = Pattern.compile(
+              "CONNECTION\\s+" + connectionName + "\\s*\\{\\s*FILE\\s*=\\s*([^\\s}]+)",
+              Pattern.DOTALL | Pattern.CASE_INSENSITIVE
+          );
+          Matcher fileConnMatcher = fileConnPattern.matcher(content);
+          if (fileConnMatcher.find()) {
+            sourceTable = fileConnMatcher.group(1);
+          }
+        }
+
+        if (sourceTable != null) {
+          // Process child and parent codes to extract column names
+          String childColumn = extractColumnFromCode(childCode);
+          String parentColumn = extractColumnFromCode(parentCode);
+
+          hierarchies.add(new Hierarchy(
+              childFeature,
+              parentFeature,
+              sourceTable,
+              childColumn,
+              parentColumn
+          ));
+        }
+      }
+    }
+  }
+
+  private String extractColumnFromCode(String code) {
+    // Check if it's wrapped in *asterisks*
+    Pattern columnPattern = Pattern.compile("\\*([^*]+)\\*");
+    Matcher matcher = columnPattern.matcher(code);
+    if (matcher.find()) {
+      return matcher.group(1);
+    }
+    // Otherwise return as-is (e.g., C1, C2)
+    return code;
   }
 
   private void parseConnections(String content) {
@@ -1651,6 +1829,53 @@ public class PSLFeatureMapper {
 
       System.out.println();
     }
+
+    // ============== ADD VOCABULARY SECTION HERE ==============
+    // Print vocabulary section
+    if (!transforms.isEmpty()) {
+      System.out.println("=".repeat(80));
+      System.out.println("VOCABULARY MAPPINGS");
+      System.out.println("=".repeat(80));
+      System.out.println();
+
+      for (int i = 0; i < transforms.size(); i++) {
+        Transform transform = transforms.get(i);
+        boolean isLast = (i == transforms.size() - 1);
+        String prefix = isLast ? "└───" : "├───";
+
+        System.out.println(prefix + " FEATURE: " + transform.feature);
+        System.out.println((isLast ? "    " : "│   ") + " └─> VOCABULARY SOURCE: " + transform.vocabularySource);
+
+        if (!isLast) {
+          System.out.println("│");
+        }
+      }
+      System.out.println();
+    }
+    if (!hierarchies.isEmpty()) {
+      System.out.println("=".repeat(80));
+      System.out.println("FEATURE HIERARCHIES");
+      System.out.println("=".repeat(80));
+      System.out.println();
+
+      for (int i = 0; i < hierarchies.size(); i++) {
+        Hierarchy hierarchy = hierarchies.get(i);
+        boolean isLast = (i == hierarchies.size() - 1);
+        String prefix = isLast ? "└───" : "├───";
+        String indent = isLast ? "    " : "│   ";
+
+        System.out.println(prefix + " HIERARCHY: " + hierarchy.parentFeature + " to " + hierarchy.childFeature);
+        System.out.println(indent + " ├─> CHILD.CODE = " + hierarchy.sourceTable + "." + hierarchy.childColumn);
+        System.out.println(indent + " └─> PARENT.CODE = " + hierarchy.sourceTable + "." + hierarchy.parentColumn);
+
+        if (!isLast) {
+          System.out.println("│");
+        }
+      }
+      System.out.println();
+    }
+
+    // =========================================================
   }
 
   private Map<String, String> parseTableAliases(String query) {
@@ -1804,6 +2029,7 @@ public class PSLFeatureMapper {
 
 
 
+
   // Inner classes
   static class Feature {
     String name;
@@ -1818,6 +2044,37 @@ public class PSLFeatureMapper {
       this.attributes = attributes;
     }
   }
+
+  static class Hierarchy {
+    String childFeature;
+    String parentFeature;
+    String sourceTable;
+    String childColumn;
+    String parentColumn;
+
+    Hierarchy(String childFeature, String parentFeature, String sourceTable,
+        String childColumn, String parentColumn) {
+      this.childFeature = childFeature;
+      this.parentFeature = parentFeature;
+      this.sourceTable = sourceTable;
+      this.childColumn = childColumn;
+      this.parentColumn = parentColumn;
+    }
+  }
+
+
+
+
+  static class Transform {
+    String feature;
+    String vocabularySource;
+
+    Transform(String feature, String vocabularySource) {
+      this.feature = feature;
+      this.vocabularySource = vocabularySource;
+    }
+  }
+
 
   static class Connection {
     String name;
@@ -1863,6 +2120,8 @@ public class PSLFeatureMapper {
       this.featureMappings = featureMappings;
     }
   }
+
+
 
   static class FeatureMapping {
     String column;
