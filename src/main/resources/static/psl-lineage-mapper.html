@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSL Feature Lineage Mapper - Atropos Health</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #0f0f1a 100%);
+            min-height: 100vh;
+        }
+        .card-gradient {
+            background: linear-gradient(145deg, #1a1a2e 0%, #16162a 100%);
+        }
+        .accent-gradient {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        .glow {
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+        }
+        #output {
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .spinner {
+            border: 3px solid rgba(16, 185, 129, 0.3);
+            border-top: 3px solid #10b981;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="p-8">
+<div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="card-gradient rounded-2xl shadow-2xl p-8 mb-8 border border-gray-800 glow">
+        <div class="flex items-center gap-4 mb-4">
+            <a href="/" class="text-gray-400 hover:text-white transition-colors">
+                ← Back
+            </a>
+        </div>
+        <div class="flex items-center gap-6">
+            <div class="w-20 h-20 accent-gradient rounded-2xl flex items-center justify-center shadow-lg">
+                <span class="text-4xl">🔗</span>
+            </div>
+            <div>
+                <h1 class="text-4xl font-bold text-white mb-2">PSL Feature Lineage Mapper</h1>
+                <p class="text-gray-400">Trace data flow from source tables to features, vocabularies, and hierarchies</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="card-gradient rounded-xl shadow-xl p-6 mb-6 border border-gray-800">
+        <h2 class="text-xl font-bold text-white mb-3">📖 How to Use</h2>
+        <ul class="text-gray-300 space-y-2 text-sm">
+            <li>• <strong>Paste your PSL config</strong> into the text area below</li>
+            <li>• <strong>Click "Generate Lineage Map"</strong> to trace all data flows</li>
+            <li>• View <strong>feature lineage</strong> (source tables → features)</li>
+            <li>• View <strong>vocabulary mappings</strong> (lookup tables for code descriptions)</li>
+            <li>• View <strong>feature hierarchies</strong> (parent-child relationships)</li>
+            <li>• <strong>Copy output</strong> for documentation or save as a text file</li>
+        </ul>
+    </div>
+
+    <!-- Input Section -->
+    <div class="card-gradient rounded-xl shadow-xl p-6 mb-6 border border-gray-800">
+        <h2 class="text-xl font-bold text-white mb-4">PSL Configuration</h2>
+        <textarea
+                id="pslInput"
+                class="w-full h-96 bg-gray-900 text-gray-100 p-4 rounded-lg border border-gray-700 focus:border-emerald-500 focus:outline-none font-mono text-sm"
+                placeholder="Paste your PSL configuration here..."
+        ></textarea>
+
+        <div class="mt-4 flex gap-4">
+            <button
+                    onclick="generateLineage()"
+                    class="accent-gradient text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-lg"
+            >
+                🔗 Generate Lineage Map
+            </button>
+            <button
+                    onclick="clearInput()"
+                    class="bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-600 transition-colors"
+            >
+                Clear
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loading" class="hidden card-gradient rounded-xl shadow-xl p-8 mb-6 border border-gray-800 text-center">
+        <div class="spinner mx-auto mb-4"></div>
+        <p class="text-gray-400">Tracing lineage...</p>
+    </div>
+
+    <!-- Output Section -->
+    <div id="outputSection" class="hidden card-gradient rounded-xl shadow-xl p-6 border border-gray-800">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-white">Feature Lineage Map</h2>
+            <div class="flex gap-2">
+                <button
+                        onclick="copyToClipboard()"
+                        class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-emerald-700 transition-colors text-sm"
+                >
+                    📋 Copy
+                </button>
+                <button
+                        onclick="downloadLineage()"
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors text-sm"
+                >
+                    💾 Download
+                </button>
+            </div>
+        </div>
+        <div id="output" class="bg-gray-900 text-gray-100 p-6 rounded-lg border border-gray-700 overflow-x-auto text-sm leading-relaxed"></div>
+    </div>
+
+    <!-- Error Section -->
+    <div id="errorSection" class="hidden card-gradient rounded-xl shadow-xl p-6 border border-red-900 bg-red-900/10">
+        <h2 class="text-xl font-bold text-red-400 mb-4">⚠️ Error</h2>
+        <div id="errorMessage" class="bg-gray-900 text-red-300 p-4 rounded-lg border border-red-900 font-mono text-sm"></div>
+    </div>
+
+    <!-- Footer -->
+    <div class="mt-8 text-center text-gray-600 text-sm">
+        <p>Atropos Health Internal Tools</p>
+    </div>
+</div>
+
+<script>
+    async function generateLineage() {
+        const pslInput = document.getElementById('pslInput').value;
+
+        if (!pslInput.trim()) {
+            showError('Please paste a PSL configuration');
+            return;
+        }
+
+        // Hide previous results
+        document.getElementById('outputSection').classList.add('hidden');
+        document.getElementById('errorSection').classList.add('hidden');
+        document.getElementById('loading').classList.remove('hidden');
+
+        try {
+            const response = await fetch('/api/psl-lineage', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain'
+                },
+                body: pslInput
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const lineageMap = await response.text();
+
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('output').textContent = lineageMap;
+            document.getElementById('outputSection').classList.remove('hidden');
+
+        } catch (error) {
+            document.getElementById('loading').classList.add('hidden');
+            showError('Failed to generate lineage map: ' + error.message);
+        }
+    }
+
+    function showError(message) {
+        document.getElementById('errorMessage').textContent = message;
+        document.getElementById('errorSection').classList.remove('hidden');
+    }
+
+    function clearInput() {
+        document.getElementById('pslInput').value = '';
+        document.getElementById('outputSection').classList.add('hidden');
+        document.getElementById('errorSection').classList.add('hidden');
+    }
+
+    function copyToClipboard() {
+        const output = document.getElementById('output').textContent;
+        navigator.clipboard.writeText(output).then(() => {
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '✅ Copied!';
+            setTimeout(() => {
+                btn.textContent = originalText;
+            }, 2000);
+        });
+    }
+
+    function downloadLineage() {
+        const output = document.getElementById('output').textContent;
+        const blob = new Blob([output], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'psl-feature-lineage.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }
+</script>
+</body>
+</html>
