@@ -30,6 +30,7 @@ public class PSLLineageController {
       System.out.flush();
       System.setOut(old);
 
+
       String lineageOutput = baos.toString();
       return ResponseEntity.ok(lineageOutput);
 
