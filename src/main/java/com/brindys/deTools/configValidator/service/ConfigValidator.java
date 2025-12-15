@@ -20,12 +20,16 @@ public class ConfigValidator {
     result.getErrors().addAll(checkMissingBrackets(config));
     result.getErrors().addAll(checkMissingParentheses(config));
     result.getWarnings().addAll(checkDuplicateCacheNames(config));
+    /*
     result.getErrors().addAll(checkBrokenConnections(config));
     result.getWarnings().addAll(checkUndefinedVariables(config));
     result.getWarnings().addAll(checkUndefinedFeatures(config));
     result.getErrors().addAll(checkMissingRequiredFields(config));
     result.getWarnings().addAll(checkUnusedFeatures(config));
     result.getWarnings().addAll(checkLongQueries(config));
+
+*/
+
 
     // Calculate summary
     result.setTotalIssues(result.getErrors().size() + result.getWarnings().size());
@@ -151,7 +155,7 @@ public class ConfigValidator {
 
     return issues;
   }
-
+/*
   // Rule 4: Check for broken "COMMECTIONS" (typo for CONNECTIONS)
   public List<ValidationIssue> checkBrokenConnections(String config) {
     List<ValidationIssue> issues = new ArrayList<>();
@@ -468,7 +472,7 @@ public class ConfigValidator {
 
     return issues;
   }
-
+*/
   // Helper methods
   private boolean connectionExists(String config, String connectionName) {
     Pattern pattern = Pattern.compile("CONNECTION\\s+" + Pattern.quote(connectionName) + "\\s+[{FROM]");
