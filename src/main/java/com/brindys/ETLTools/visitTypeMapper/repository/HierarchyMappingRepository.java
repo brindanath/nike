@@ -1,7 +1,7 @@
-package com.brindys.deTools.visitTypeMapper.repository;
+package com.brindys.ETLTools.visitTypeMapper.repository;
 
 
-import com.brindys.deTools.visitTypeMapper.model.HierarchyMapping;
+import com.brindys.ETLTools.visitTypeMapper.model.HierarchyMapping;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

@@ -1,8 +1,8 @@
-package com.brindys.deTools.configValidator.controller;
+package com.brindys.ETLTools.configValidator.controller;
 
 
-import com.brindys.deTools.configValidator.model.ValidationResult;
-import com.brindys.deTools.configValidator.service.ConfigValidator;
+import com.brindys.ETLTools.configValidator.model.ValidationResult;
+import com.brindys.ETLTools.configValidator.service.ConfigValidator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

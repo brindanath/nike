@@ -24,6 +24,21 @@
           </svg>
   );
 
+  const GitBranch = ({ className }) => (
+          <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="6" y1="3" x2="6" y2="15"/>
+            <circle cx="18" cy="6" r="3"/>
+            <circle cx="6" cy="18" r="3"/>
+            <path d="M18 9a9 9 0 0 1-9 9"/>
+          </svg>
+  );
+
+  const Clock = ({ className }) => (
+          <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+  );
   const Upload = ({ className }) => (
           <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -123,12 +138,17 @@
     const [addSourceValue, setAddSourceValue] = useState('');
     const [addTargetValue, setAddTargetValue] = useState('');
     const [bulkUploadText, setBulkUploadText] = useState('');
-
+    const [showCommitModal, setShowCommitModal] = useState(false);
+    const [commitMessage, setCommitMessage] = useState('');
+    const [commitAuthor, setCommitAuthor] = useState('Dan');
+    const [isCommitting, setIsCommitting] = useState(false);
     const [hierarchyInputText, setHierarchyInputText] = useState('');
     const [hierarchyOutputTsv, setHierarchyOutputTsv] = useState('');
     const [addHierarchySourceValue, setAddHierarchySourceValue] = useState('');
     const [addHierarchyTargetValue, setAddHierarchyTargetValue] = useState('');
     const [bulkHierarchyUploadText, setBulkHierarchyUploadText] = useState('');
+
+
 
     useEffect(() => {
       loadMappings();
@@ -235,13 +255,16 @@
       });
 
       try {
-        await api.vocab.bulkSave(newMappings);
-        await loadMappings();
+        console.log('Uploading mappings:', newMappings); // Debug log
+        const response = await api.vocab.bulkSave(newMappings);
+        console.log('Upload response:', response); // Debug log
+
+        await loadMappings(); // Reload to verify
         setBulkUploadText('');
-        alert(`Uploaded ${lines.length} vocab mappings`);
+        alert(`Successfully uploaded ${Object.keys(newMappings).length} vocab mappings`);
       } catch (error) {
         console.error('Error bulk uploading:', error);
-        alert('Error bulk uploading mappings');
+        alert('Error bulk uploading mappings: ' + error.message);
       }
     };
 
@@ -259,13 +282,16 @@
       });
 
       try {
-        await api.hierarchy.bulkSave(newMappings);
-        await loadMappings();
+        console.log('Uploading hierarchy mappings:', newMappings); // Debug log
+        const response = await api.hierarchy.bulkSave(newMappings);
+        console.log('Upload response:', response); // Debug log
+
+        await loadMappings(); // Reload to verify
         setBulkHierarchyUploadText('');
-        alert(`Uploaded ${lines.length} hierarchy mappings`);
+        alert(`Successfully uploaded ${Object.keys(newMappings).length} hierarchy mappings`);
       } catch (error) {
         console.error('Error bulk uploading:', error);
-        alert('Error bulk uploading hierarchy mappings');
+        alert('Error bulk uploading hierarchy mappings: ' + error.message);
       }
     };
 
@@ -311,6 +337,81 @@
       }
     };
 
+    const commitToGitHub = async () => {
+      if (!commitMessage.trim()) {
+        alert('Please enter a commit message');
+        return;
+      }
+
+      setIsCommitting(true);
+      try {
+        // Get current mappings directly
+        const response = await fetch('/api/github/current-mappings');
+        const data = await response.json();
+
+        console.log('Current mappings data:', data);
+
+        // Flatten into a single map for GitHub storage
+        // Prefix keys to distinguish vocab vs hierarchy
+        const flatMapping = {};
+
+        // Add vocab mappings with "vocab:" prefix
+        Object.entries(data.vocab_mappings || {}).forEach(([key, value]) => {
+          flatMapping[`vocab:${key}`] = value;
+        });
+
+        // Add hierarchy mappings with "hierarchy:" prefix
+        Object.entries(data.hierarchy_mappings || {}).forEach(([key, value]) => {
+          flatMapping[`hierarchy:${key}`] = value;
+        });
+
+        // Add metadata
+        flatMapping['_metadata_total_count'] = String(data.total_count);
+        flatMapping['_metadata_committed_at'] = new Date().toISOString();
+
+        console.log('Flattened mapping:', flatMapping);
+
+        // Commit to GitHub
+        const commitResponse = await fetch('/api/github/commit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mapping: flatMapping,
+            message: commitMessage.trim(),
+            author: commitAuthor.trim()
+          })
+        });
+
+        console.log('Commit response status:', commitResponse.status);
+
+        if (!commitResponse.ok) {
+          const errorText = await commitResponse.text();
+          console.error('Commit error response:', errorText);
+          alert('Failed to commit (HTTP ' + commitResponse.status + '):\n' + errorText);
+          return;
+        }
+
+        const result = await commitResponse.json();
+        console.log('Commit result:', result);
+
+        if (result.success) {
+          alert('✓ Successfully committed to GitHub!\n\n' +
+                  `Total mappings: ${data.total_count}\n` +
+                  `Commit: ${result.commitSha?.substring(0, 7)}`);
+          setShowCommitModal(false);
+          setCommitMessage('');
+        } else {
+          alert('Failed to commit:\n' + (result.message || JSON.stringify(result)));
+        }
+      } catch (error) {
+        console.error('Error committing to GitHub:', error);
+        alert('Error committing to GitHub: ' + error.message);
+      } finally {
+        setIsCommitting(false);
+      }
+    };
+
+
     const exportAllMappings = () => {
       const tsv = Object.entries(mappings)
               .map(([source, target]) => `${source}\t${target}`)
@@ -353,13 +454,23 @@
                     <h1 className="text-3xl font-bold mb-2 text-blue-400">Visit Type Mapping Tool</h1>
                     <p className="text-gray-400">Map source visit types to approved clinical vocabulary and hierarchy</p>
                   </div>
-                  <a href="/" className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded transition-colors">
-                    <Home />
-                    Home
-                  </a>
+                  <div className="flex items-center gap-3">
+                    <button
+                            onClick={() => setShowCommitModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                    >
+                      <GitBranch className="w-4 h-4" />
+                      Commit to GitHub
+                    </button>
+                    <a href="/" className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded transition-colors">
+                      <Home />
+                      Home
+                    </a>
+                  </div>
                 </div>
 
                 <div className="flex gap-2 mb-6 border-b border-gray-700 flex-wrap">
+                  {/* All your tab buttons - keep exactly as they are */}
                   <button
                           onClick={() => setActiveTab('map')}
                           className={`px-4 py-2 font-medium transition-colors ${
@@ -786,7 +897,92 @@
                                   </div>
                           )}
                         </div>
-                )}
+
+                )}{showCommitModal && (
+                      <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+                        <div className="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-md shadow-2xl">
+                          <div className="p-4 border-b border-gray-700 flex justify-between items-center">
+                            <h3 className="text-xl font-semibold text-blue-400">Commit to GitHub</h3>
+                            <button
+                                    onClick={() => setShowCommitModal(false)}
+                                    className="text-gray-400 hover:text-gray-300 text-2xl leading-none"
+                            >
+                              ×
+                            </button>
+                          </div>
+
+                          <div className="p-6 space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-300 mb-2">
+                                Commit Message <span className="text-red-400">*</span>
+                              </label>
+                              <input
+                                      type="text"
+                                      value={commitMessage}
+                                      onChange={(e) => setCommitMessage(e.target.value)}
+                                      placeholder="e.g., visit mappings dataset xvy version 1.2"
+                                      maxLength={100}
+                                      className="w-full p-3 bg-gray-900 border border-gray-700 rounded text-gray-100 focus:outline-none focus:border-blue-500"
+                                      onKeyPress={(e) => e.key === 'Enter' && commitToGitHub()}
+                              />
+                              <div className="text-right text-xs text-gray-500 mt-1">
+                                {commitMessage.length}/100
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-300 mb-2">
+                                Author
+                              </label>
+                              <input
+                                      type="text"
+                                      value={commitAuthor}
+                                      onChange={(e) => setCommitAuthor(e.target.value)}
+                                      placeholder="Your name"
+                                      className="w-full p-3 bg-gray-900 border border-gray-700 rounded text-gray-100 focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+
+                            <div className="bg-gray-900 p-3 rounded border border-gray-700">
+                              <div className="text-sm text-gray-400">
+                                <p className="mb-1">This will commit:</p>
+                                <ul className="list-disc list-inside space-y-1 text-gray-300">
+                                  <li>{Object.keys(mappings).length} vocab mappings</li>
+                                  <li>{Object.keys(hierarchyMappings).length} hierarchy mappings</li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="p-4 border-t border-gray-700 flex justify-end gap-3">
+                            <button
+                                    onClick={() => setShowCommitModal(false)}
+                                    disabled={isCommitting}
+                                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded transition-colors disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                                    onClick={commitToGitHub}
+                                    disabled={isCommitting || !commitMessage.trim()}
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-2"
+                            >
+                              {isCommitting ? (
+                                      <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Committing...
+                                      </>
+                              ) : (
+                                      <>
+                                        <GitBranch className="w-4 h-4" />
+                                        Commit
+                                      </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+              )}
               </div>
             </div>
     );

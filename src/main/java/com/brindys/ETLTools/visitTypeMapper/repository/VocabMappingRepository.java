@@ -1,6 +1,6 @@
-package com.brindys.deTools.visitTypeMapper.repository;
+package com.brindys.ETLTools.visitTypeMapper.repository;
 
-import com.brindys.deTools.visitTypeMapper.model.VocabMapping;
+import com.brindys.ETLTools.visitTypeMapper.model.VocabMapping;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

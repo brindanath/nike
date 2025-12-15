@@ -1,7 +1,7 @@
-package com.brindys.deTools;
+package com.brindys.ETLTools;
 
 
-import com.brindys.deTools.pslFeatureMapper.PSLFeatureMapper;
+import com.brindys.ETLTools.pslFeatureMapper.PSLFeatureMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,7 +29,6 @@ public class PSLLineageController {
 
       System.out.flush();
       System.setOut(old);
-
 
       String lineageOutput = baos.toString();
       return ResponseEntity.ok(lineageOutput);

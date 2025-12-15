@@ -1,4 +1,4 @@
-package com.brindys.deTools;
+package com.brindys.ETLTools;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
@@ -8,9 +8,9 @@ import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
 @ComponentScan(basePackages = {
-    "com.brindys.deTools",  // Add this to scan the base package
-    "com.brindys.deTools.visitTypeMapper",
-    "com.brindys.deTools.configValidator"
+    "com.brindys.ETLTools",  // Add this to scan the base package
+    "com.brindys.ETLTools.visitTypeMapper",
+    "com.brindys.ETLTools.configValidator"
 })
 public class DeToolsApplication implements CommandLineRunner {
 

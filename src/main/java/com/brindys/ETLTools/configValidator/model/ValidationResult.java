@@ -1,4 +1,4 @@
-package com.brindys.deTools.configValidator.model;
+package com.brindys.ETLTools.configValidator.model;
 
 
 import lombok.AllArgsConstructor;

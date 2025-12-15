@@ -1,15 +1,21 @@
-package com.brindys.deTools.visitTypeMapper.controller;
+package com.brindys.ETLTools.visitTypeMapper.controller;
 
+import com.brindys.ETLTools.visitTypeMapper.model.HierarchyMapping;
+import com.brindys.ETLTools.visitTypeMapper.model.VocabMapping;
+import com.brindys.ETLTools.visitTypeMapper.repository.HierarchyMappingRepository;
+import com.brindys.ETLTools.visitTypeMapper.repository.VocabMappingRepository;
 
-import com.brindys.deTools.visitTypeMapper.model.HierarchyMapping;
-import com.brindys.deTools.visitTypeMapper.model.VocabMapping;
-import com.brindys.deTools.visitTypeMapper.repository.HierarchyMappingRepository;
-import com.brindys.deTools.visitTypeMapper.repository.VocabMappingRepository;
+import com.brindys.ETLTools.support.github.GitHubService;
+import com.brindys.ETLTools.support.github.dto.CommitRequest;
+import com.brindys.ETLTools.support.github.dto.CommitResponse;
+import com.brindys.ETLTools.support.github.dto.MappingHistory;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;  // ADD THIS
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +30,10 @@ public class MappingController {
 
   @Autowired
   private HierarchyMappingRepository hierarchyRepo;
+
+  // ADD THIS NEW AUTOWIRED FIELD:
+  @Autowired
+  private GitHubService gitHubService;
 
   // ========== VOCAB MAPPINGS ==========
 
@@ -126,4 +136,98 @@ public class MappingController {
     hierarchyRepo.deleteBySourceVisitType(source);
     return ResponseEntity.ok("Deleted");
   }
+
+  @PostMapping("/github/commit")
+  public ResponseEntity<CommitResponse> commitToGitHub(@RequestBody CommitRequest request) {
+    CommitResponse response = gitHubService.commitMapping(request);
+
+    if (response.isSuccess()) {
+      return ResponseEntity.ok(response);
+    } else {
+      return ResponseEntity.status(500).body(response);
+    }
+  }
+
+  /**
+   * Get mapping history from GitHub
+   */
+  @GetMapping("/github/history")
+  public ResponseEntity<?> getMappingHistory() {
+    try {
+      List<MappingHistory> history = gitHubService.getMappingHistory();
+      return ResponseEntity.ok(history);
+    } catch (IOException e) {
+      return ResponseEntity.status(500).body(Map.of(
+          "success", false,
+          "error", "Failed to fetch history: " + e.getMessage()
+      ));
+    }
+  }
+
+  /**
+   * Test GitHub connection
+   */
+  @GetMapping("/github/status")
+  public ResponseEntity<Map<String, String>> getGitHubStatus() {
+    try {
+      String info = gitHubService.getRepositoryInfo();
+      return ResponseEntity.ok(Map.of("status", info));
+    } catch (IOException e) {
+      return ResponseEntity.status(500).body(Map.of(
+          "status", "Error connecting to GitHub: " + e.getMessage()
+      ));
+    }
+  }
+  /**
+   * Restore a mapping from GitHub
+   */
+  @PostMapping("/github/restore")
+  public ResponseEntity<?> restoreMapping(@RequestBody Map<String, String> request) {
+    try {
+      String filename = request.get("filename");
+      Map<String, String> mapping = gitHubService.loadMapping(filename);
+
+      return ResponseEntity.ok(Map.of(
+          "success", true,
+          "mapping", mapping,
+          "message", "Mapping loaded from GitHub"
+      ));
+    } catch (IOException e) {
+      return ResponseEntity.status(500).body(Map.of(
+          "success", false,
+          "error", e.getMessage()
+      ));
+    }
+  }
+
+
+  /**
+   * Helper endpoint to get all current mappings as JSON for committing
+   */
+  @GetMapping("/github/current-mappings")
+  public ResponseEntity<Map<String, Object>> getCurrentMappings() {
+    Map<String, Object> result = new HashMap<>();
+
+    // Get vocab mappings
+    List<VocabMapping> vocabs = vocabRepo.findAll();
+    Map<String, String> vocabMap = new HashMap<>();
+    for (VocabMapping v : vocabs) {
+      vocabMap.put(v.getSourceVisitType(), v.getTargetVisitType());
+    }
+
+    // Get hierarchy mappings
+    List<HierarchyMapping> hierarchies = hierarchyRepo.findAll();
+    Map<String, String> hierarchyMap = new HashMap<>();
+    for (HierarchyMapping h : hierarchies) {
+      hierarchyMap.put(h.getSourceVisitType(), h.getParentHierarchyType());
+    }
+
+    result.put("vocab_mappings", vocabMap);
+    result.put("hierarchy_mappings", hierarchyMap);
+    result.put("total_count", vocabMap.size() + hierarchyMap.size());
+
+    return ResponseEntity.ok(result);
+  }
+
+
 }

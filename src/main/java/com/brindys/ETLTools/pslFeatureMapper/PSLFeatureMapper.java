@@ -1,4 +1,4 @@
-package com.brindys.deTools.pslFeatureMapper;
+package com.brindys.ETLTools.pslFeatureMapper;
 
 import java.util.*;
 import java.util.regex.*;

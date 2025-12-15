@@ -1,9 +1,9 @@
-package com.brindys.deTools.configValidator.service;
+package com.brindys.ETLTools.configValidator.service;
 
 
 
-import com.brindys.deTools.configValidator.model.ValidationIssue;
-import com.brindys.deTools.configValidator.model.ValidationResult;
+import com.brindys.ETLTools.configValidator.model.ValidationIssue;
+import com.brindys.ETLTools.configValidator.model.ValidationResult;
 import org.springframework.stereotype.Service;
 
 import java.util.*;

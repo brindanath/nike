@@ -1,4 +1,4 @@
-package com.brindys.deTools.configFormatter.controller;
+package com.brindys.ETLTools.configFormatter.controller;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;

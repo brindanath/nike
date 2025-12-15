@@ -1,7 +1,7 @@
 package test.com.brindys.deTools.pslFeatureMapper;
 
 
-import com.brindys.deTools.pslFeatureMapper.PSLFeatureMapper;
+import com.brindys.ETLTools.pslFeatureMapper.PSLFeatureMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import static org.junit.jupiter.api.Assertions.*;
