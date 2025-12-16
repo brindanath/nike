@@ -74,11 +74,16 @@
         </svg>
     );
 
-    const Download = ({ className }) => (
+    const Copy = ({ className }) => (
         <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+    );
+
+    const Check = ({ className }) => (
+        <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="20 6 9 17 4 12"/>
         </svg>
     );
 
@@ -99,6 +104,7 @@
     function ConfigFormatter() {
         const [config, setConfig] = useState('');
         const [formatted, setFormatted] = useState(false);
+        const [copied, setCopied] = useState(false);
         const editorRef = useRef(null);
         const cmInstanceRef = useRef(null);
 
@@ -316,15 +322,12 @@
             return formatted;
         };
 
-        const downloadConfig = () => {
+        const copyConfig = () => {
             const text = cmInstanceRef.current.getValue();
-            const blob = new Blob([text], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'formatted_config.psl';
-            a.click();
-            URL.revokeObjectURL(url);
+            navigator.clipboard.writeText(text).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            });
         };
 
         const loadExample = () => {
@@ -382,11 +385,11 @@ QUERY CONDITION FROM TEST_CONN {
                                 Format Config
                             </button>
                             <button
-                                onClick={downloadConfig}
+                                onClick={copyConfig}
                                 className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg font-medium hover:bg-gray-700 transition-all"
                             >
-                                <Download className="w-5 h-5" />
-                                Download
+                                {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                                {copied ? 'Copied!' : 'Copy'}
                             </button>
                             <button
                                 onClick={loadExample}
