@@ -33,33 +33,32 @@
         .CodeMirror-selected { background: rgba(168, 85, 247, 0.2) !important; }
 
         /* PSL Syntax Highlighting */
-        .cm-keyword-dataset { color: #9370db; } /* mediumpurple - DATASET */
-        .cm-variable-declaration { color: #b0e0e6; font-style: italic; } /* powderblue - dataset names */
-        .cm-keyword-url { color: #00bfff; font-style: italic; } /* deepskyblue - url */
-        .cm-keyword-dataset-var { color: #7fffd4; font-style: italic; } /* aquamarine - PRECISION, etc */
-        .cm-keyword-connection { color: #ff8c00; } /* darkorange - CONNECTION */
-        .cm-keyword-map { color: #ff6347; } /* tomato - MAP */
-        .cm-variable-map { color: #afeeee; font-style: italic; } /* paleturquoise - map names */
-        .cm-keyword-from { color: #f0e68c; } /* khaki - FROM */
-        .cm-keyword-transform { color: #ff69b4; } /* hotpink - TRANSFORM */
-        .cm-keyword-var { color: #00ff00; } /* green - VAR */
-        .cm-keyword-pid { color: #00ffff; } /* aqua - PID */
-        .cm-keyword-assert { color: #00fa9a; } /* mediumspringgreen - ASSERT */
-        .cm-keyword-query { color: #e9967a; font-weight: bold; } /* darksalmon - QUERY */
-        .cm-keyword-schema { color: #ffe4c4; } /* bisque - SCHEMA */
-        .cm-keyword-target { color: #eee8aa; } /* palegoldenrod - TARGET */
-        .cm-keyword-start { color: #00ffff; } /* cyan - START */
-        .cm-keyword-end { color: #ff1493; } /* deeppink - END */
-        .cm-keyword-hierarchy { color: #ffff00; } /* yellow - HIERARCHY */
-        .cm-keyword-null { color: #dc143c; } /* crimson - NULL */
-        .cm-keyword-control { color: #87ceeb; } /* skyblue - TQL, CSV */
-        .cm-constant-sql { color: #ffffe0; } /* lightyellow - SQL constants */
-        .cm-keyword-select { color: #6495ed; } /* cornflowerblue - SELECT */
-        .cm-keyword-declaration { color: #fafad2; } /* lightgoldenrodyellow - CPT, ICD9 */
-
-        .cm-comment { color: #fff8dc; font-style: italic; } /* cornsilk - comments */
-        .cm-string { color: #98fb98; } /* palegreen - strings */
-        .cm-number { color: #ffa07a; } /* lightsalmon - numbers */
+        .cm-keyword-dataset { color: #9370db; }
+        .cm-variable-declaration { color: #b0e0e6; font-style: italic; }
+        .cm-keyword-url { color: #00bfff; font-style: italic; }
+        .cm-keyword-dataset-var { color: #7fffd4; font-style: italic; }
+        .cm-keyword-connection { color: #ff8c00; }
+        .cm-keyword-map { color: #ff6347; }
+        .cm-variable-map { color: #afeeee; font-style: italic; }
+        .cm-keyword-from { color: #f0e68c; }
+        .cm-keyword-transform { color: #ff69b4; }
+        .cm-keyword-var { color: #00ff00; }
+        .cm-keyword-pid { color: #00ffff; }
+        .cm-keyword-assert { color: #00fa9a; }
+        .cm-keyword-query { color: #e9967a; font-weight: bold; }
+        .cm-keyword-schema { color: #ffe4c4; }
+        .cm-keyword-target { color: #eee8aa; }
+        .cm-keyword-start { color: #00ffff; }
+        .cm-keyword-end { color: #ff1493; }
+        .cm-keyword-hierarchy { color: #ffff00; }
+        .cm-keyword-null { color: #dc143c; }
+        .cm-keyword-control { color: #87ceeb; }
+        .cm-constant-sql { color: #ffffe0; }
+        .cm-keyword-select { color: #6495ed; }
+        .cm-keyword-declaration { color: #fafad2; }
+        .cm-comment { color: #fff8dc; font-style: italic; }
+        .cm-string { color: #98fb98; }
+        .cm-number { color: #ffa07a; }
     </style>
 </head>
 <body>
@@ -101,10 +100,19 @@
         </svg>
     );
 
+    const Spinner = ({ className }) => (
+        <svg className={`${className} animate-spin`} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" strokeOpacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round"/>
+        </svg>
+    );
+
     function ConfigFormatter() {
         const [config, setConfig] = useState('');
         const [formatted, setFormatted] = useState(false);
         const [copied, setCopied] = useState(false);
+        const [loading, setLoading] = useState(false);
+        const [error, setError] = useState(null);
         const editorRef = useRef(null);
         const cmInstanceRef = useRef(null);
 
@@ -114,34 +122,19 @@
                 CodeMirror.defineMode("psl", function() {
                     return {
                         token: function(stream, state) {
-                            // Comments
-                            if (stream.match(/^#.*/)) {
-                                return "comment";
-                            }
+                            if (stream.match(/^#.*/)) return "comment";
+                            if (stream.match(/^"(?:[^"\\]|\\.)*"/)) return "string";
+                            if (stream.match(/^-?\d+\.?\d*/)) return "number";
 
-                            // Strings
-                            if (stream.match(/^"(?:[^"\\]|\\.)*"/)) {
-                                return "string";
-                            }
-
-                            // Numbers
-                            if (stream.match(/^-?\d+\.?\d*/)) {
-                                return "number";
-                            }
-
-                            // FEATURE keyword - then set flag for next token
                             if (stream.match(/\b(FEATURE)\b/i)) {
                                 state.afterFeature = true;
                                 return "keyword-transform";
                             }
-
-                            // Feature name after FEATURE keyword (make it blue)
                             if (state.afterFeature && stream.match(/\b\w+\b/)) {
                                 state.afterFeature = false;
                                 return "variable-declaration";
                             }
 
-                            // Keywords by color groups
                             if (stream.match(/\b(DATASET)\b/i)) return "keyword-dataset";
                             if (stream.match(/\b(CONNECTION)\b/i)) return "keyword-connection";
                             if (stream.match(/\b(MAP)\b/i)) return "keyword-map";
@@ -190,136 +183,39 @@
             }
         }, []);
 
-        const formatConfig = () => {
-            let text = cmInstanceRef.current.getValue();
+        const formatConfig = async () => {
+            const text = cmInstanceRef.current.getValue();
+            if (!text.trim()) {
+                setError('Please enter a PSL config to format');
+                return;
+            }
 
-            // Normalize spacing between keywords on the SAME LINE (not across lines)
-            // Replace multiple spaces with single space, but preserve newlines
-            text = text.split('\n').map(line => line.replace(/\s{2,}/g, ' ')).join('\n');
+            setLoading(true);
+            setError(null);
 
-            // Normalize spacing around = (but not in SQL)
-            text = text.replace(/^(\s*)(\w+)\s*=\s*(?!.*SELECT)/gm, '$1$2 = ');
+            try {
+                const response = await fetch('/api/config-formatter/format', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain'
+                    },
+                    body: text
+                });
 
-            // Normalize spacing around { (keep on same line)
-            text = text.replace(/\s*{\s*/g, ' {\n');
-
-            // Ensure closing braces are on their own line
-            text = text.replace(/([^\n])\s*}/g, '$1\n}');
-
-            // First pass: Standardize basic indentation (4 spaces)
-            const lines = text.split('\n');
-            let indentLevel = 0;
-            const formattedLines = lines.map(line => {
-                const trimmed = line.trim();
-                if (!trimmed) return '';
-
-                // Don't re-indent lines that are part of SQL queries
-                if (trimmed.match(/^(SELECT|FROM|WHERE|LEFT JOIN|INNER JOIN|ORDER BY|CASE|WHEN|THEN|ELSE|END|ON|AND|PARTITION BY)/i)) {
-                    return line; // Keep existing indentation for SQL
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
-                if (trimmed === '}') {
-                    indentLevel = Math.max(0, indentLevel - 1);
-                }
-
-                const indented = '    '.repeat(indentLevel) + trimmed;
-
-                if (trimmed.endsWith('{')) {
-                    indentLevel++;
-                }
-
-                return indented;
-            });
-
-            text = formattedLines.join('\n');
-
-            // NOW format SQL queries with proper multi-line indentation
-            text = text.replace(/(QUERY\s*=\s*)(SELECT[\s\S]*?)(\n\s*(?:}|FEATURE|CONNECTION|QUERY|SCHEMA|MAP|HIERARCHY|TRANSFORM|DATASET|VARIABLE|TQL|CSV))/gi,
-                (match, prefix, sql, suffix) => {
-                    // Count the base indentation level
-                    const baseIndent = prefix.match(/^(\s*)/)[1];
-                    const formatted = formatSQLMultiLine(sql, baseIndent);
-                    return prefix + formatted + suffix;
-                }
-            );
-
-            // Remove excessive blank lines (max 2 consecutive)
-            text = text.replace(/\n{3,}/g, '\n\n');
-
-            // Remove blank lines within blocks (between { and })
-            text = text.replace(/(\{[^\}]*?)\n\s*\n([^\}]*?\})/g, (match, start, end) => {
-                // Remove blank lines but keep structure
-                return start.replace(/\n\s*\n/g, '\n') + '\n' + end;
-            });
-
-            cmInstanceRef.current.setValue(text);
-            setFormatted(true);
-            setTimeout(() => setFormatted(false), 2000);
-        };
-
-        const formatSQLMultiLine = (sql, baseIndent = '') => {
-            // Uppercase SQL keywords
-            const keywords = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'ORDER BY', 'LIMIT', 'UNION',
-                'LEFT JOIN', 'INNER JOIN', 'RIGHT JOIN', 'FULL JOIN', 'ON', 'AS',
-                'DISTINCT', 'CAST', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'IS',
-                'NOT', 'NULL', 'IN', 'BETWEEN', 'COALESCE', 'SUBSTRING', 'LENGTH',
-                'CONCAT', 'ROW_NUMBER', 'OVER', 'PARTITION BY', 'DATE', 'DATEADD'];
-
-            let formatted = sql.trim();
-
-            // Uppercase keywords
-            keywords.forEach(kw => {
-                const regex = new RegExp('\\b' + kw + '\\b', 'gi');
-                formatted = formatted.replace(regex, kw.toUpperCase());
-            });
-
-            // Normalize whitespace first
-            formatted = formatted.replace(/\s+/g, ' ');
-
-            // Calculate indentation - we're at QUERY = level, need to indent relative to that
-            const queryIndent = baseIndent + '    '; // Base indent + 4 for being inside CONNECTION block
-            const colIndent = queryIndent + '            '; // Columns indent from QUERY line
-            const clauseIndent = queryIndent + '        '; // FROM, WHERE indent
-            const whereCondIndent = queryIndent + '            '; // WHERE conditions
-
-            // SELECT stays on same line, columns on next lines
-            formatted = formatted.replace(/SELECT\s+/gi, 'SELECT\n' + colIndent);
-
-            // Columns - each on new line
-            formatted = formatted.replace(/,\s*(?![^()]*\))/g, ',\n' + colIndent);
-
-            // FROM on new line
-            formatted = formatted.replace(/\s+FROM\s+/gi, '\n' + clauseIndent + 'FROM\n' + colIndent);
-
-            // LEFT JOIN, INNER JOIN on new line
-            formatted = formatted.replace(/\s+(LEFT JOIN|INNER JOIN|RIGHT JOIN|FULL JOIN)\s+/gi,
-                '\n' + colIndent + '$1 ');
-
-            // Subqueries - handle SELECT within parens
-            formatted = formatted.replace(/\(\s*SELECT/gi, '(\n' + colIndent + '    SELECT');
-            formatted = formatted.replace(/\)\s+AS\s+/gi, '\n' + clauseIndent + ') AS ');
-
-            // ON clause
-            formatted = formatted.replace(/\s+ON\s+/gi, '\n' + colIndent + 'ON\n' + colIndent + '    ');
-
-            // WHERE clause
-            formatted = formatted.replace(/\s+WHERE\s+/gi, '\n' + clauseIndent + 'WHERE\n' + whereCondIndent);
-
-            // AND in WHERE (each on new line with proper indent)
-            formatted = formatted.replace(/\sAND\s(?![^(]*\))/gi, '\n' + whereCondIndent + 'AND ');
-
-            // ORDER BY
-            formatted = formatted.replace(/\s+ORDER BY\s+/gi, '\n' + clauseIndent + 'ORDER BY\n' + colIndent);
-
-            // CASE statements
-            formatted = formatted.replace(/\s+CASE\s+/gi, '\n' + colIndent + '    CASE\n' + colIndent + '        ');
-            formatted = formatted.replace(/\s+WHEN\s+/gi, '\n' + colIndent + '        WHEN ');
-            formatted = formatted.replace(/\s+THEN\s+/gi, ' THEN ');
-            formatted = formatted.replace(/\s+ELSE\s+/gi, '\n' + colIndent + '        ELSE ');
-            formatted = formatted.replace(/\s+END\s*,/gi, '\n' + colIndent + '    END,');
-            formatted = formatted.replace(/\s+END\s*$/gi, '\n' + colIndent + '    END');
-
-            return formatted;
+                const formatted = await response.text();
+                cmInstanceRef.current.setValue(formatted);
+                setFormatted(true);
+                setTimeout(() => setFormatted(false), 2000);
+            } catch (e) {
+                console.error('Formatting error:', e);
+                setError('Failed to format config: ' + e.message);
+            } finally {
+                setLoading(false);
+            }
         };
 
         const copyConfig = () => {
@@ -342,6 +238,7 @@ FEATURE ICD10, ICD10, STRING, INDEXED, SEARCHABLE
 
 CONNECTION TEST_CONN FROM SOURCE {
     CACHE = test_cache
+    SORT COLUMN = *ptid*
     QUERY = SELECT patient_id, diagnosis_code, diagnosis_date FROM medical_claims WHERE diagnosis_code_type = 'ICD10'
 }
 
@@ -379,10 +276,11 @@ QUERY CONDITION FROM TEST_CONN {
                         <div className="flex gap-3 mb-4">
                             <button
                                 onClick={formatConfig}
-                                className="flex items-center gap-2 px-4 py-2 accent-gradient text-white rounded-lg font-medium glow hover:opacity-90 transition-all"
+                                disabled={loading}
+                                className="flex items-center gap-2 px-4 py-2 accent-gradient text-white rounded-lg font-medium glow hover:opacity-90 transition-all disabled:opacity-50"
                             >
-                                <Wand className="w-5 h-5" />
-                                Format Config
+                                {loading ? <Spinner className="w-5 h-5" /> : <Wand className="w-5 h-5" />}
+                                {loading ? 'Formatting...' : 'Format Config'}
                             </button>
                             <button
                                 onClick={copyConfig}
@@ -405,6 +303,13 @@ QUERY CONDITION FROM TEST_CONN {
                             )}
                         </div>
 
+                        {/* Error message */}
+                        {error && (
+                            <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm">
+                                {error}
+                            </div>
+                        )}
+
                         {/* Editor */}
                         <div className="border border-purple-900/30 rounded-lg overflow-hidden">
                             <textarea ref={editorRef} />
@@ -419,6 +324,7 @@ QUERY CONDITION FROM TEST_CONN {
                                 <li>• Aligns brackets consistently (opening on same line)</li>
                                 <li>• Normalizes spacing around =, {'{}'}</li>
                                 <li>• Removes excessive blank lines</li>
+                                <li>• Keeps VARIABLE statements on single line</li>
                                 <li>• Syntax highlighting using your Sublime color scheme</li>
                             </ul>
                         </div>
@@ -432,3 +338,5 @@ QUERY CONDITION FROM TEST_CONN {
 </script>
 </body>
 </html>
+```
+
